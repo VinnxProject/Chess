@@ -8,7 +8,7 @@ const game = new Chess();
 
 let selectedSquare = null;
 let flipped = false;
-let currentDepth = 22;
+let currentDepth = 12;
 
 let stockfish = null;
 let engineReady = false;
@@ -24,25 +24,17 @@ let lastBestMove = null;
 const files = 'abcdefgh';
 
 // ======================================
-// CHESS PIECES
+// PIECE SYMBOLS
 // ======================================
 
 const pieceSymbols = {
     w: {
-        p: '♙',
-        r: '♖',
-        n: '♘',
-        b: '♗',
-        q: '♕',
-        k: '♔'
+        p: '♙', r: '♖', n: '♘',
+        b: '♗', q: '♕', k: '♔'
     },
     b: {
-        p: '♟',
-        r: '♜',
-        n: '♞',
-        b: '♝',
-        q: '♛',
-        k: '♚'
+        p: '♟', r: '♜', n: '♞',
+        b: '♝', q: '♛', k: '♚'
     }
 };
 
@@ -76,9 +68,7 @@ try {
             if (
                 enginePaused ||
                 activeVersion !== analysisVersion
-            ) {
-                return;
-            }
+            ) return;
 
             handleEngineInfo(line);
             return;
@@ -107,10 +97,9 @@ try {
             if (!uci || uci === '(none)') {
                 bestMoveElement.textContent = 'No legal move';
                 pvElement.textContent = '-';
-
                 lastBestMove = null;
                 drawArrow();
-
+                updateEngineButtons();
                 return;
             }
 
@@ -145,13 +134,37 @@ try {
 // ======================================
 
 function setMode(btn) {
+    const label = (
+        btn.dataset.mode ||
+        btn.textContent ||
+        ''
+    ).trim().toLowerCase();
+
+    let depth = Number(btn.dataset.depth);
+
+    // Fallback jika data-depth belum tersedia
+
+    if (!Number.isFinite(depth) || depth <= 0) {
+        if (label.includes('ekstrim') || label.includes('extreme')) {
+            depth = 22;
+        } else if (label.includes('bijak') || label.includes('wise')) {
+            depth = 18;
+        } else {
+            depth = 12;
+        }
+    }
+
+    currentDepth = depth;
+
     document.querySelectorAll('.mode-btn').forEach(button => {
         button.classList.remove('active');
     });
 
     btn.classList.add('active');
 
-    currentDepth = Number(btn.dataset.depth);
+    if (enginePaused) {
+        enginePaused = false;
+    }
 
     analyzePosition();
 }
@@ -180,13 +193,8 @@ function createEngineControls() {
     `;
 
     controls.innerHTML = `
-        <button id="engine-stop" type="button">
-            Stop
-        </button>
-
-        <button id="engine-run" type="button">
-            Run
-        </button>
+        <button id="engine-stop" type="button">Stop</button>
+        <button id="engine-run" type="button">Run</button>
     `;
 
     const style = document.createElement('style');
@@ -252,7 +260,7 @@ function stopEngine() {
 
     analysisVersion++;
 
-    if (searching && stockfish) {
+    if (searching) {
         stockfish.postMessage('stop');
     }
 
@@ -280,13 +288,8 @@ function runEngine() {
 function renderBoard() {
     boardElement.innerHTML = '';
 
-    // Board tidak diputar menggunakan CSS.
-    // Kotak disusun ulang agar bidak tetap tegak.
-
     boardElement.style.transform = 'none';
     arrowLayer.style.transform = 'none';
-
-    const board = game.board();
 
     for (let displayRow = 0; displayRow < 8; displayRow++) {
         for (let displayCol = 0; displayCol < 8; displayCol++) {
@@ -345,8 +348,6 @@ function renderBoard() {
 
                 square.appendChild(pieceElement);
             }
-
-            // Coordinate labels
 
             if (displayCol === 0) {
                 const rankLabel = document.createElement('span');
@@ -524,7 +525,7 @@ function handleSquareClick(square) {
 }
 
 // ======================================
-// CONVERT UCI TO SAN
+// UCI TO SAN
 // ======================================
 
 function uciToSan(uci, fen) {
@@ -566,9 +567,7 @@ function convertPV(pv, fen) {
                 promotion: uci.substring(4, 5) || 'q'
             });
 
-            if (move) {
-                result.push(move.san);
-            }
+            if (move) result.push(move.san);
         });
 
         return result.join(' ');
@@ -612,7 +611,7 @@ function displayBestMove(uci) {
 }
 
 // ======================================
-// DRAW ANALYSIS ARROW
+// DRAW BEST MOVE ARROW
 // ======================================
 
 function drawArrow(from, to) {
@@ -620,39 +619,44 @@ function drawArrow(from, to) {
 
     if (!from || !to) return;
 
-    const fromFile = files.indexOf(from[0]);
-    const fromRank = Number(from[1]);
+    const fromSquare = boardElement.querySelector(
+        `[data-pos="${from}"]`
+    );
 
-    const toFile = files.indexOf(to[0]);
-    const toRank = Number(to[1]);
+    const toSquare = boardElement.querySelector(
+        `[data-pos="${to}"]`
+    );
 
-    if (
-        fromFile < 0 ||
-        toFile < 0 ||
-        fromRank < 1 ||
-        fromRank > 8 ||
-        toRank < 1 ||
-        toRank > 8
-    ) {
-        return;
-    }
+    if (!fromSquare || !toSquare) return;
 
-    const x1 =
-        ((flipped ? 7 - fromFile : fromFile) * 60) + 30;
+    const svgRect = arrowLayer.getBoundingClientRect();
+    const fromRect = fromSquare.getBoundingClientRect();
+    const toRect = toSquare.getBoundingClientRect();
 
-    const y1 =
-        ((flipped ? fromRank - 1 : 8 - fromRank) * 60) + 30;
+    if (!svgRect.width || !svgRect.height) return;
 
-    const x2 =
-        ((flipped ? 7 - toFile : toFile) * 60) + 30;
+    const scaleX = 480 / svgRect.width;
+    const scaleY = 480 / svgRect.height;
 
-    const y2 =
-        ((flipped ? toRank - 1 : 8 - toRank) * 60) + 30;
+    const x1 = (
+        fromRect.left + fromRect.width / 2 - svgRect.left
+    ) * scaleX;
+
+    const y1 = (
+        fromRect.top + fromRect.height / 2 - svgRect.top
+    ) * scaleY;
+
+    const x2 = (
+        toRect.left + toRect.width / 2 - svgRect.left
+    ) * scaleX;
+
+    const y2 = (
+        toRect.top + toRect.height / 2 - svgRect.top
+    ) * scaleY;
 
     const dx = x2 - x1;
     const dy = y2 - y1;
-
-    const length = Math.sqrt(dx * dx + dy * dy);
+    const length = Math.hypot(dx, dy);
 
     if (!length) return;
 
@@ -662,39 +666,29 @@ function drawArrow(from, to) {
     const px = -uy;
     const py = ux;
 
-    const shaftWidth = 13;
-    const headWidth = 34;
-    const headLength = 29;
+    // Ukuran panah diperkecil
 
-    const tipX = x2 - ux * 8;
-    const tipY = y2 - uy * 8;
+    const shaftWidth = 7;
+    const headWidth = 19;
+    const headLength = 17;
+
+    const startX = x1 + ux * 10;
+    const startY = y1 + uy * 10;
+
+    const tipX = x2 - ux * 7;
+    const tipY = y2 - uy * 7;
 
     const baseX = tipX - ux * headLength;
     const baseY = tipY - uy * headLength;
 
-    const startX = x1 + ux * 13;
-    const startY = y1 + uy * 13;
-
     const points = [
-        [startX + px * shaftWidth / 2,
-            startY + py * shaftWidth / 2],
-
-        [baseX + px * shaftWidth / 2,
-            baseY + py * shaftWidth / 2],
-
-        [baseX + px * headWidth / 2,
-            baseY + py * headWidth / 2],
-
+        [startX + px * shaftWidth / 2, startY + py * shaftWidth / 2],
+        [baseX + px * shaftWidth / 2, baseY + py * shaftWidth / 2],
+        [baseX + px * headWidth / 2, baseY + py * headWidth / 2],
         [tipX, tipY],
-
-        [baseX - px * headWidth / 2,
-            baseY - py * headWidth / 2],
-
-        [baseX - px * shaftWidth / 2,
-            baseY - py * shaftWidth / 2],
-
-        [startX - px * shaftWidth / 2,
-            startY - py * shaftWidth / 2]
+        [baseX - px * headWidth / 2, baseY - py * headWidth / 2],
+        [baseX - px * shaftWidth / 2, baseY - py * shaftWidth / 2],
+        [startX - px * shaftWidth / 2, startY - py * shaftWidth / 2]
     ];
 
     const polygon = document.createElementNS(
@@ -704,11 +698,11 @@ function drawArrow(from, to) {
 
     polygon.setAttribute(
         'points',
-        points.map(point => point.join(',')).join(' ')
+        points.map(p => p.join(',')).join(' ')
     );
 
     polygon.setAttribute('fill', '#81b64c');
-    polygon.setAttribute('opacity', '0.88');
+    polygon.setAttribute('opacity', '0.85');
 
     arrowLayer.appendChild(polygon);
 }
@@ -718,10 +712,10 @@ function drawArrow(from, to) {
 // ======================================
 
 function handleEngineInfo(line) {
+    if (!activeFen) return;
+
     const cpMatch = line.match(/score cp (-?\d+)/);
     const mateMatch = line.match(/score mate (-?\d+)/);
-
-    if (!activeFen) return;
 
     const turn = activeFen.split(' ')[1];
 
@@ -744,24 +738,18 @@ function handleEngineInfo(line) {
                 : `-M${Math.abs(mate)}`;
     }
 
-    const pvMatch = line.match(/\spv (.+)$/);
+    const pvMatch = line.match(/\bpv\s+(.+)$/);
 
     if (pvMatch) {
-        const pvMoves = pvMatch[1].trim().split(/\s+/);
+        const moves = pvMatch[1].trim().split(/\s+/);
+        const firstMove = moves[0];
 
-        const pv = convertPV(pvMatch[1], activeFen);
-
-        pvElement.textContent = pv || '-';
-
-        // Tampilkan kandidat Best Move secepatnya.
-        // Tidak perlu menunggu bestmove dari engine.
-
-        if (
-            pvMoves.length > 0 &&
-            /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(pvMoves[0])
-        ) {
-            displayBestMove(pvMoves[0]);
+        if (/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(firstMove)) {
+            displayBestMove(firstMove);
         }
+
+        pvElement.textContent =
+            convertPV(pvMatch[1], activeFen) || '-';
     }
 }
 
@@ -775,7 +763,6 @@ function analyzePosition() {
     analysisVersion++;
 
     lastBestMove = null;
-
     arrowLayer.innerHTML = '';
 
     bestMoveElement.textContent = 'Analyzing...';
@@ -839,13 +826,25 @@ document.getElementById('flip-btn').addEventListener('click', () => {
     renderBoard();
 
     if (lastBestMove) {
-        drawArrow(lastBestMove.from, lastBestMove.to);
+        requestAnimationFrame(() => {
+            drawArrow(lastBestMove.from, lastBestMove.to);
+        });
     }
 });
 
 // ======================================
 // INITIALIZATION
 // ======================================
+
+arrowLayer.style.cssText = `
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:20;
+    pointer-events:none;
+    overflow:visible;
+`;
 
 createEngineControls();
 
@@ -854,3 +853,11 @@ renderBoard();
 evalElement.textContent = '0.00';
 bestMoveElement.textContent = 'Waiting for Stockfish...';
 pvElement.textContent = 'Waiting for Stockfish...';
+
+// Set Normal sebagai mode awal
+
+const initialMode = document.querySelector('.mode-btn');
+
+if (initialMode) {
+    setMode(initialMode);
+}
