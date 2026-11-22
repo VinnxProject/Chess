@@ -220,6 +220,63 @@
 
 <body>
 
+    <!-- WELCOME POPUP -->
+
+    <section id="welcome-popup" class="welcome-overlay">
+        <div class="welcome-card">
+
+            <div class="welcome-top">
+                <span class="official-badge">OFFICIAL CHANNEL</span>
+                <span class="verified-icon">✓</span>
+            </div>
+
+            <div class="welcome-brand">
+                <h2>WELCOME TO</h2>
+                <h1>VINNXMATE</h1>
+                <p>CHESS ANALYSIS PLATFORM</p>
+            </div>
+
+            <div class="welcome-divider"></div>
+
+            <h3>Stay Connected With Us</h3>
+
+            <p class="welcome-description">
+                Sebelum menggunakan VINNXMATE, silakan bergabung
+                dengan official WhatsApp Channel kami untuk mendapatkan
+                informasi, pembaruan fitur, dan pengumuman terbaru.
+            </p>
+
+            <div class="welcome-notice">
+                <strong>INFORMATION</strong>
+                <p>
+                    Setelah bergabung dengan channel kami,
+                    tekan tombol konfirmasi di bawah sebanyak
+                    tiga kali untuk melanjutkan ke aplikasi.
+                </p>
+            </div>
+
+            <a
+                href="https://whatsapp.com/channel/0029VbC4cCJ5fM5jj5yH4v1L/419"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="join-button"
+            >
+                Join Official Channel
+                <span>↗</span>
+            </a>
+
+            <button id="confirm-join" class="confirm-button" type="button">
+                Saya Sudah Bergabung
+            </button>
+
+            <p class="welcome-footer">
+                VINNXMATE · THINK BETTER. PLAY SMARTER.
+            </p>
+
+        </div>
+    </section>
+
+
     <!-- INTRO SCREEN -->
 
     <section class="intro-screen" id="intro-screen">
@@ -307,8 +364,6 @@
 
         <div class="content-wrapper">
 
-            <!-- CHESS BOARD -->
-
             <section class="board-section">
 
                 <div class="board-wrapper">
@@ -317,14 +372,6 @@
                         id="arrow-layer"
                         viewBox="0 0 480 480"
                         preserveAspectRatio="none"
-                        style="
-                            position:absolute;
-                            inset:0;
-                            width:100%;
-                            height:100%;
-                            pointer-events:none;
-                            z-index:10;
-                        "
                     ></svg>
 
                     <div id="board" class="board"></div>
@@ -333,8 +380,6 @@
 
             </section>
 
-
-            <!-- ANALYSIS SIDEBAR -->
 
             <aside class="sidebar">
 
@@ -369,8 +414,6 @@
 
                 </section>
 
-
-                <!-- ENGINE CONTROLS -->
 
                 <section class="controls-panel">
 
@@ -433,8 +476,6 @@
         </div>
 
 
-        <!-- WEBSITE FOOTER -->
-
         <footer class="website-footer">
 
             <p>
@@ -470,7 +511,7 @@
     </main>
 
 
-    <!-- INTRO SCRIPT -->
+    <!-- PAGE SCRIPT -->
 
     <script>
         function enterWebsite() {
@@ -484,11 +525,7 @@
         }
     </script>
 
-
-    <!-- CHESS ENGINE -->
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <script src="stockfish-19-asm.js"></script>
     <script src="script.js"></script>
 
 </body>
