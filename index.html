@@ -7,50 +7,63 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>♟️ Vines Chess Analysis</h1>
-        
-        <div class="main-layout">
-            <!-- Papan Catur & Layer Panah -->
-            <div class="board-wrapper">
-                <svg id="arrow-layer" viewBox="0 0 480 480" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></svg>
-                <div id="board" class="board"></div>
+    <div class="main-container">
+        <!-- Header ala Chess.com -->
+        <header class="header">
+            <h1>Vines Analysis</h1>
+        </header>
+
+        <div class="content-wrapper">
+            <!-- Sisi Kiri: Papan + Eval Bar -->
+            <div class="board-section">
+                <div class="eval-bar-container">
+                    <div class="eval-bar-fill" id="eval-bar"></div>
+                </div>
+                <div class="board-wrapper">
+                    <svg id="arrow-layer" viewBox="0 0 480 480" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></svg>
+                    <div id="board" class="board"></div>
+                </div>
             </div>
 
-            <!-- Panel Analisis -->
-            <div class="analysis-panel">
-                <div class="eval-box">
-                    <h3>Evaluasi</h3>
-                    <div id="evaluation">0.00</div>
+            <!-- Sisi Kanan: Panel Analisis -->
+            <div class="sidebar">
+                <div class="engine-panel">
+                    <div class="panel-header">
+                        <span>Stockfish 19</span>
+                        <span class="depth-indicator" id="depth-indicator">Depth: 22</span>
+                    </div>
+                    
+                    <div class="eval-score" id="evaluation">0.00</div>
+
+                    <div class="best-move-section">
+                        <div class="label">Best Move</div>
+                        <div class="value" id="best-move">-</div>
+                    </div>
+
+                    <div class="pv-section">
+                        <div class="label">Principal Variation</div>
+                        <div class="value" id="principal-variation">-</div>
+                    </div>
                 </div>
-                <div class="best-move-box">
-                    <h3>Langkah Terbaik</h3>
-                    <div id="best-move">-</div>
-                </div>
-                <div class="pv-box">
-                    <h3>Variasi Utama (PV)</h3>
-                    <div id="principal-variation">-</div>
-                </div>
-                
-                <!-- Mode Analisis -->
-                <div class="mode-selector">
-                    <h3>Mode Analisis</h3>
-                    <div class="mode-buttons">
+
+                <div class="controls-panel">
+                    <div class="mode-selector">
                         <button class="mode-btn active" data-depth="22" onclick="setMode(this)">🔥 Ekstrim</button>
                         <button class="mode-btn" data-depth="18" onclick="setMode(this)">🧠 Bijak</button>
                         <button class="mode-btn" data-depth="12" onclick="setMode(this)">⚡ Normal</button>
                     </div>
+                    
+                    <div class="action-buttons">
+                        <button id="reset-btn" class="btn-action">🔄 Reset</button>
+                        <button id="flip-btn" class="btn-action">🔃 Flip</button>
+                    </div>
                 </div>
-
-                <button id="reset-btn">🔄 Reset Papan</button>
-                <button id="flip-btn">🔃 Putar Papan</button>
             </div>
         </div>
     </div>
 
     <!-- Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <!-- PENTING: Load file stockfish-19-asm.js -->
     <script src="stockfish-19-asm.js"></script>
     <script src="script.js"></script>
 </body>
