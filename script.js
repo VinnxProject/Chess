@@ -2,12 +2,13 @@ const boardElement = document.getElementById('board');
 const evalElement = document.getElementById('evaluation');
 const bestMoveElement = document.getElementById('best-move');
 const pvElement = document.getElementById('principal-variation');
+const arrowLayer = document.getElementById('arrow-layer');
 
 const game = new Chess();
 let selectedSquare = null;
 let stockfish = new Worker('stockfish-19-asm.js');
 
-// Default Mode Ekstrim (Depth 22)
+// Default Mode Ekstrim
 let currentDepth = 22; 
 
 // --- LOGIKA GANTI MODE ---
@@ -68,6 +69,41 @@ function handleSquareClick(square) {
     }
 }
 
+// --- GAMBAR PANAH ---
+function drawArrow(from, to) {
+    arrowLayer.innerHTML = ''; 
+    if (!from || !to) return;
+
+    const fromCol = from.charCodeAt(0) - 97;
+    const fromRow = 8 - parseInt(from[1]);
+    const toCol = to.charCodeAt(0) - 97;
+    const toRow = 8 - parseInt(to[1]);
+
+    // Ukuran papan 480px dibagi 8 = 60px per kotak
+    const x1 = (fromCol * 60) + 30;
+    const y1 = (fromRow * 60) + 30;
+    const x2 = (toCol * 60) + 30;
+    const y2 = (toRow * 60) + 30;
+
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    arrow.setAttribute('x1', x1);
+    arrow.setAttribute('y1', y1);
+    arrow.setAttribute('x2', x2);
+    arrow.setAttribute('y2', y2);
+    arrow.setAttribute('stroke', 'rgba(255, 215, 0, 0.8)');
+    arrow.setAttribute('stroke-width', '8');
+    arrow.setAttribute('marker-end', 'url(#arrowhead)');
+    arrowLayer.appendChild(arrow);
+
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.innerHTML = `
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255, 215, 0, 0.8)" />
+        </marker>
+    `;
+    arrowLayer.appendChild(defs);
+}
+
 // --- ANALISIS STOCKFISH ---
 function analyzePosition() {
     const fen = game.fen();
@@ -95,9 +131,17 @@ stockfish.onmessage = function(event) {
         }
     }
 
-    if (line.startsWith('bestmove')) {
-        const bestMove = line.split(' ')[1];
-        bestMoveElement.textContent = bestMove;
+    // FIX BUG LANGKAH TERBAIK & GAMBAR PANAH
+    if (line.includes('bestmove')) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length > 1 && parts[1] !== '(none)') {
+            const bestMove = parts[1];
+            bestMoveElement.textContent = bestMove;
+            
+            const from = bestMove.substring(0, 2);
+            const to = bestMove.substring(2, 4);
+            drawArrow(from, to);
+        }
     }
 };
 
@@ -108,11 +152,13 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     evalElement.textContent = '0.00';
     bestMoveElement.textContent = '-';
     pvElement.textContent = '-';
+    arrowLayer.innerHTML = '';
     analyzePosition();
 });
 
 document.getElementById('flip-btn').addEventListener('click', () => {
     boardElement.style.transform = boardElement.style.transform === 'rotate(180deg)' ? 'rotate(0deg)' : 'rotate(180deg)';
+    arrowLayer.style.transform = arrowLayer.style.transform === 'rotate(180deg)' ? 'rotate(0deg)' : 'rotate(180deg)';
 });
 
 // --- INISIALISASI ---
