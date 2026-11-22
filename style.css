@@ -1,134 +1,301 @@
-* { 
-    margin: 0; 
-    padding: 0; 
-    box-sizing: border-box; 
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --bg: #101318;
+    --surface: #191e27;
+    --surface-2: #222936;
+    --border: #2b3442;
+    --text: #edf1f7;
+    --muted: #8994a5;
+    --accent: #81b64c;
+    --accent-hover: #93c65d;
+    --gold: #e7c66b;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background-color: #312e2b;
-    color: #fff;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     min-height: 100vh;
-    padding: 20px;
+    padding: 28px 18px;
+    background:
+        radial-gradient(ellipse at top, #202b36 0%, transparent 55%),
+        var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
 }
 
-.main-container { max-width: 1000px; width: 100%; }
-.header { margin-bottom: 20px; text-align: center; }
-.header h1 { color: #fff; }
+button {
+    font-family: inherit;
+}
+
+.main-container {
+    width: 100%;
+    max-width: 1120px;
+    margin: auto;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 28px;
+}
+
+.header h1 {
+    font-size: clamp(21px, 4vw, 30px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(110deg, #fff, #91b7dc);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+/* MAIN LAYOUT */
 
 .content-wrapper {
-    display: flex;
-    gap: 20px;
-    justify-content: center;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 310px;
+    align-items: start;
+    gap: 22px;
 }
 
-/* --- PAPAN CATUR --- */
+/* CHESSBOARD */
+
 .board-section {
-    background-color: #262421;
-    padding: 10px;
-    border-radius: 8px;
+    width: 100%;
+    min-width: 0;
+    padding: clamp(8px, 2vw, 16px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 15px 45px #0005;
 }
 
 .board-wrapper {
     position: relative;
-    width: 480px;
-    height: 480px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-width: 700px;
+    margin: auto;
 }
 
 .board {
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px);
-    width: 480px;
-    height: 480px;
-    border-radius: 4px;
-    overflow: hidden; /* Biar ujungnya tetep melengkung */
+    width: 100%;
+    height: 100%;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    overflow: hidden;
+    border-radius: 5px;
     z-index: 1;
 }
 
 .square {
-    width: 60px;
-    height: 60px;
+    width: 100%;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 40px;
+    font-size: clamp(28px, 6.5vw, 52px);
     cursor: pointer;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: filter .12s ease;
 }
 
-/* Warna Papan Chess.com */
-.square.light { background-color: #eeeed2; }
-.square.dark { background-color: #769656; }
-
-/* Efek saat dipilih */
-.square.selected { 
-    background-color: rgba(255, 255, 0, 0.6) !important; 
+.square:hover {
+    filter: brightness(1.12);
 }
 
-/* --- SIDEBAR --- */
+.square.light {
+    background: #eeeed2;
+}
+
+.square.dark {
+    background: #779556;
+}
+
+.square.selected {
+    background: #baca44 !important;
+}
+
+/* SIDEBAR */
+
 .sidebar {
+    width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    width: 300px;
+    gap: 16px;
 }
 
 .engine-panel {
-    background-color: #262421;
-    padding: 15px;
-    border-radius: 8px;
+    padding: 21px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px #0003;
 }
 
 .engine-panel h3 {
-    font-size: 12px;
-    color: #999;
+    margin-top: 20px;
+    margin-bottom: 9px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: 1.5px;
     text-transform: uppercase;
-    margin-top: 10px;
 }
 
-.engine-panel h3:first-child { margin-top: 0; }
+.engine-panel h3:first-child {
+    margin-top: 0;
+}
 
 #evaluation {
-    font-size: 36px;
-    font-weight: bold;
-    color: #81b64c;
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
 }
 
 #best-move {
+    display: inline-block;
+    padding: 9px 13px;
+    background: #81b64c18;
+    border: 1px solid #81b64c45;
+    border-radius: 8px;
+    color: var(--accent-hover);
     font-size: 20px;
-    font-weight: bold;
-    color: #ffd700;
+    font-weight: 800;
 }
 
 #principal-variation {
-    font-size: 14px;
-    color: #ccc;
+    padding: 12px;
+    background: var(--surface-2);
+    border-radius: 8px;
+    color: #c2cbd8;
+    font-size: 13px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
     font-family: monospace;
 }
+
+/* CONTROLS */
 
 .controls-panel {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 11px;
+    padding: 17px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
 }
 
-.mode-selector { display: flex; gap: 8px; }
+.mode-selector {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
 
-.mode-btn, button {
-    padding: 10px;
-    background-color: #3d3a37;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
+.mode-btn,
+button {
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
     cursor: pointer;
-    font-weight: bold;
+    transition: .2s ease;
 }
 
-.mode-btn.active { background-color: #81b64c; }
-button:hover { background-color: #4a4744; }
-#reset-btn, #flip-btn { width: 100%; }
+.mode-btn {
+    padding: 9px 4px;
+    font-size: 11px;
+}
+
+.mode-btn:hover,
+button:hover {
+    background: #303b4b;
+    border-color: #46546a;
+}
+
+.mode-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #101810;
+}
+
+#reset-btn,
+#flip-btn {
+    width: 100%;
+    min-height: 44px;
+}
+
+#reset-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #101810;
+}
+
+#reset-btn:hover {
+    background: var(--accent-hover);
+}
+
+#flip-btn {
+    background: var(--surface-2);
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 760px) {
+    body {
+        padding: 18px 12px;
+    }
+
+    .content-wrapper {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 15px;
+    }
+
+    .board-section {
+        padding: 7px;
+    }
+
+    .sidebar {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .engine-panel {
+        padding: 17px;
+    }
+
+    .header {
+        margin-bottom: 18px;
+    }
+}
+
+@media (max-width: 360px) {
+    body {
+        padding: 12px 7px;
+    }
+
+    .square {
+        font-size: 10vw;
+    }
+
+    .mode-btn {
+        font-size: 9px;
+    }
+}
