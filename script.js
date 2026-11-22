@@ -1,4 +1,3 @@
-
 // ======================================
 // VINNXMATE WELCOME SYSTEM
 // ======================================
@@ -270,48 +269,10 @@ function createEngineControls() {
     controls.id = 'engine-controls';
     controls.className = 'engine-controls';
 
-    controls.style.cssText = `
-        display:flex;
-        gap:10px;
-        width:100%;
-        margin-top:12px;
-    `;
-
     controls.innerHTML = `
         <button id="engine-stop" type="button">Stop</button>
         <button id="engine-run" type="button">Run</button>
     `;
-
-    const style = document.createElement('style');
-
-    style.textContent = `
-        #engine-controls button {
-            flex:1;
-            min-height:42px;
-            border:0;
-            border-radius:9px;
-            font-size:14px;
-            font-weight:800;
-            cursor:pointer;
-        }
-
-        #engine-stop {
-            background:#c0392b;
-            color:white;
-        }
-
-        #engine-run {
-            background:#81b64c;
-            color:#101710;
-        }
-
-        #engine-controls button:disabled {
-            opacity:.45;
-            cursor:not-allowed;
-        }
-    `;
-
-    document.head.appendChild(style);
 
     modeButton.parentElement.insertAdjacentElement(
         'afterend',
@@ -378,44 +339,10 @@ function createHistoryControls() {
 
     controls.id = 'move-history-controls';
 
-    controls.style.cssText = `
-        display:flex;
-        gap:10px;
-        width:100%;
-        margin-top:12px;
-    `;
-
     controls.innerHTML = `
         <button id="undo-move" type="button">&lt;&lt;</button>
         <button id="redo-move" type="button">&gt;&gt;</button>
     `;
-
-    const style = document.createElement('style');
-
-    style.textContent = `
-        #move-history-controls button {
-            flex:1;
-            min-height:42px;
-            border:0;
-            border-radius:9px;
-            background:#293447;
-            color:white;
-            font-size:20px;
-            font-weight:900;
-            cursor:pointer;
-        }
-
-        #move-history-controls button:disabled {
-            opacity:.35;
-            cursor:not-allowed;
-        }
-
-        #move-history-controls button:not(:disabled):active {
-            transform:scale(.97);
-        }
-    `;
-
-    document.head.appendChild(style);
 
     const wrapper = document.querySelector('.board-wrapper');
 
@@ -500,11 +427,6 @@ function createReviewControls() {
 
     container.id = 'game-review-controls';
 
-    container.style.cssText = `
-        width:100%;
-        margin-top:14px;
-    `;
-
     container.innerHTML = `
         <button id="start-game-review" type="button">
             REVIEW GAME
@@ -517,138 +439,6 @@ function createReviewControls() {
         <div id="game-review-summary"></div>
         <div id="game-review-results"></div>
     `;
-
-    const style = document.createElement('style');
-
-    style.textContent = `
-        #start-game-review {
-            width:100%;
-            min-height:45px;
-            border:0;
-            border-radius:10px;
-            background:#81b64c;
-            color:#101710;
-            font-size:14px;
-            font-weight:900;
-            cursor:pointer;
-        }
-
-        #start-game-review:disabled {
-            opacity:.5;
-            cursor:not-allowed;
-        }
-
-        #game-review-status {
-            margin-top:10px;
-            color:#9ca3af;
-            font-size:12px;
-            text-align:center;
-        }
-
-        #game-review-summary {
-            display:grid;
-            grid-template-columns:repeat(2,minmax(0,1fr));
-            gap:8px;
-            margin-top:12px;
-        }
-
-        .review-stat {
-            background:#1d293b;
-            padding:12px;
-            border-radius:9px;
-            color:white;
-        }
-
-        .review-stat strong {
-            display:block;
-            font-size:20px;
-            margin-bottom:4px;
-        }
-
-        .review-stat small {
-            color:#9ca3af;
-            font-size:11px;
-        }
-
-        #game-review-results {
-            display:grid;
-            gap:8px;
-            margin-top:12px;
-        }
-
-        .review-move {
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:10px;
-            padding:11px 13px;
-            background:#1d293b;
-            border-radius:9px;
-            color:white;
-            font-size:13px;
-        }
-
-        .review-move-info {
-            display:flex;
-            flex-direction:column;
-            gap:4px;
-            min-width:0;
-        }
-
-        .review-move-info small {
-            color:#8994a5;
-        }
-
-        .review-label {
-            font-size:11px;
-            font-weight:900;
-            padding:6px 9px;
-            border-radius:6px;
-            white-space:nowrap;
-        }
-
-        .review-brilliant {
-            background:#159b8b;
-            color:white;
-        }
-
-        .review-great {
-            background:#2878c7;
-            color:white;
-        }
-
-        .review-best {
-            background:#81b64c;
-            color:#101710;
-        }
-
-        .review-excellent {
-            background:#579b72;
-            color:white;
-        }
-
-        .review-good {
-            background:#557c9f;
-            color:white;
-        }
-
-        .review-inaccuracy {
-            background:#c49b39;
-            color:#17130a;
-        }
-
-        .review-mistake {
-            background:#d47737;
-            color:white;
-        }
-
-        .review-blunder {
-            background:#c0392b;
-            color:white;
-        }
-    `;
-
-    document.head.appendChild(style);
 
     const wrapper = document.querySelector('.board-wrapper');
 
@@ -1008,6 +798,8 @@ async function startGameReview() {
             const afterEval = evaluations[i];
 
             if (
+                !beforeEval ||
+                !afterEval ||
                 beforeEval.whiteScore === null ||
                 afterEval.whiteScore === null
             ) continue;
@@ -1060,6 +852,7 @@ async function startGameReview() {
 
     } catch (error) {
         console.error('Game Review error:', error);
+
         status.textContent =
             'Review error: ' + (error.message || 'Unknown error');
 
