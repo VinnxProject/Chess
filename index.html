@@ -4,283 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#101318">
-
     <title>VINNXMATE — Chess Analysis</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-
     <link rel="stylesheet" href="style.css">
-
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #101318;
-            font-family: 'Inter', sans-serif;
-        }
-
-        /* INTRO SCREEN */
-
-        .intro-screen {
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            background:
-                radial-gradient(circle at 50% 35%, #24352b 0%, transparent 42%),
-                #101318;
-            transition: opacity .6s ease, visibility .6s ease;
-        }
-
-        .intro-screen.hide {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-
-        .intro-content {
-            width: 100%;
-            max-width: 430px;
-            text-align: center;
-            animation: introAppear .9s ease both;
-        }
-
-        .intro-logo {
-            width: 112px;
-            height: 112px;
-            object-fit: contain;
-            border-radius: 28px;
-            margin-bottom: 25px;
-            filter: drop-shadow(0 0 30px rgba(129, 182, 76, .2));
-        }
-
-        .intro-brand {
-            color: #fff;
-            font-size: 35px;
-            font-weight: 900;
-            letter-spacing: 5px;
-            margin: 0;
-        }
-
-        .intro-brand span {
-            color: #81b64c;
-        }
-
-        .intro-subtitle {
-            color: #929baa;
-            font-size: 11px;
-            letter-spacing: 3px;
-            font-weight: 700;
-            margin-top: 12px;
-        }
-
-        .intro-description {
-            color: #a1aab8;
-            font-size: 13px;
-            line-height: 1.8;
-            margin: 25px auto 30px;
-            max-width: 310px;
-        }
-
-        .start-button {
-            width: 100%;
-            max-width: 250px;
-            padding: 16px 22px;
-            border: none;
-            border-radius: 12px;
-            background: #81b64c;
-            color: #101810;
-            font-size: 13px;
-            font-weight: 900;
-            letter-spacing: 1px;
-            cursor: pointer;
-            transition: .25s;
-            box-shadow: 0 8px 30px rgba(129, 182, 76, .15);
-        }
-
-        .start-button:hover {
-            background: #95ca5e;
-            transform: translateY(-3px);
-        }
-
-        .intro-socials {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin-top: 27px;
-        }
-
-        .social-link {
-            text-decoration: none;
-            color: #b9c1cd;
-            border: 1px solid #303947;
-            background: rgba(255,255,255,.03);
-            padding: 10px 15px;
-            border-radius: 9px;
-            font-size: 11px;
-            font-weight: 700;
-            transition: .2s;
-        }
-
-        .social-link:hover {
-            border-color: #81b64c;
-            color: #81b64c;
-        }
-
-        .intro-footer {
-            margin-top: 45px;
-            color: #596373;
-            font-size: 10px;
-            letter-spacing: 1px;
-        }
-
-        @keyframes introAppear {
-            from {
-                opacity: 0;
-                transform: translateY(25px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* HEADER BRAND */
-
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 13px;
-        }
-
-        .header-logo {
-            width: 46px;
-            height: 46px;
-            object-fit: contain;
-            border-radius: 12px;
-        }
-
-        .header h1 {
-            letter-spacing: 1.5px;
-            font-weight: 900;
-        }
-
-        /* SOCIAL FOOTER */
-
-        .website-footer {
-            margin-top: 20px;
-            padding: 18px 10px;
-            border-top: 1px solid #29313d;
-            text-align: center;
-        }
-
-        .website-footer p {
-            color: #788496;
-            font-size: 10px;
-            margin: 0 0 12px;
-        }
-
-        .footer-socials {
-            display: flex;
-            justify-content: center;
-            gap: 18px;
-            flex-wrap: wrap;
-        }
-
-        .footer-socials a {
-            color: #aab4c2;
-            text-decoration: none;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .footer-socials a:hover {
-            color: #81b64c;
-        }
-
-        @media (max-width: 600px) {
-            .intro-brand {
-                font-size: 29px;
-            }
-
-            .intro-logo {
-                width: 95px;
-                height: 95px;
-            }
-        }
-    </style>
 </head>
 
 <body>
 
-    <!-- WELCOME POPUP -->
-
-    <section id="welcome-popup" class="welcome-overlay">
+    <!-- WHATSAPP WELCOME POPUP -->
+    <section class="welcome-popup" id="welcome-popup">
         <div class="welcome-card">
-
-            <div class="welcome-top">
-                <span class="official-badge">OFFICIAL CHANNEL</span>
-                <span class="verified-icon">✓</span>
+            <div class="welcome-logo">
+                <img src="https://files.catbox.moe/mo53uz.png" alt="VINNXMATE">
             </div>
 
-            <div class="welcome-brand">
-                <h2>WELCOME TO</h2>
-                <h1>VINNXMATE</h1>
-                <p>CHESS ANALYSIS PLATFORM</p>
-            </div>
+            <div class="welcome-eyebrow">VINNXMATE COMMUNITY</div>
 
-            <div class="welcome-divider"></div>
-
-            <h3>Stay Connected With Us</h3>
+            <h2>Welcome to <span>VINNXMATE</span></h2>
 
             <p class="welcome-description">
-                Sebelum menggunakan VINNXMATE, silakan bergabung
-                dengan official WhatsApp Channel kami untuk mendapatkan
-                informasi, pembaruan fitur, dan pengumuman terbaru.
+                Sebelum menggunakan VINNXMATE Chess Analysis,
+                silakan bergabung dengan channel WhatsApp resmi kami
+                untuk mendapatkan informasi dan pembaruan terbaru.
             </p>
 
-            <div class="welcome-notice">
-                <strong>INFORMATION</strong>
-                <p>
-                    Setelah bergabung dengan channel kami,
-                    tekan tombol konfirmasi di bawah sebanyak
-                    tiga kali untuk melanjutkan ke aplikasi.
-                </p>
-            </div>
-
             <a
+                class="welcome-join"
                 href="https://whatsapp.com/channel/0029VbC4cCJ5fM5jj5yH4v1L/419"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="join-button"
             >
-                Join Official Channel
-                <span>↗</span>
+                Join WhatsApp Channel <span>↗</span>
             </a>
 
-            <button id="confirm-join" class="confirm-button" type="button">
-                Saya Sudah Bergabung
+            <button id="confirm-join" class="welcome-confirm" type="button">
+                Saya sudah bergabung
             </button>
 
-            <p class="welcome-footer">
-                VINNXMATE · THINK BETTER. PLAY SMARTER.
+            <p class="welcome-note">
+                Setelah bergabung, tekan tombol konfirmasi untuk melanjutkan.
             </p>
 
+            <div class="welcome-footer">
+                VINNXMATE · CHESS ANALYSIS
+            </div>
         </div>
     </section>
 
 
     <!-- INTRO SCREEN -->
-
     <section class="intro-screen" id="intro-screen">
-
         <div class="intro-content">
 
             <img
@@ -312,37 +88,28 @@
                     href="https://www.tiktok.com/@ZetsuTheDev"
                     target="_blank"
                     rel="noopener noreferrer"
-                >
-                    TikTok
-                </a>
+                >TikTok</a>
 
                 <a
                     class="social-link"
                     href="https://t.me/TaxxiiOffc"
                     target="_blank"
                     rel="noopener noreferrer"
-                >
-                    Telegram
-                </a>
+                >Telegram</a>
             </div>
 
             <div class="intro-footer">
                 DEVELOPED BY VINNX
             </div>
-
         </div>
-
     </section>
 
 
     <!-- MAIN WEBSITE -->
-
     <main class="main-container">
 
         <header class="header">
-
             <div class="header-brand">
-
                 <img
                     src="https://files.catbox.moe/mo53uz.png"
                     class="header-logo"
@@ -351,23 +118,17 @@
 
                 <div>
                     <h1>VINNXMATE</h1>
-
-                    <p style="color:#8994a5;font-size:12px;margin-top:6px;">
-                        Chess Analysis Engine
-                    </p>
+                    <p class="header-subtitle">Chess Analysis Engine</p>
                 </div>
-
             </div>
-
         </header>
 
 
         <div class="content-wrapper">
 
+            <!-- CHESS BOARD -->
             <section class="board-section">
-
                 <div class="board-wrapper">
-
                     <svg
                         id="arrow-layer"
                         viewBox="0 0 480 480"
@@ -375,157 +136,93 @@
                     ></svg>
 
                     <div id="board" class="board"></div>
-
                 </div>
-
             </section>
 
 
+            <!-- ANALYSIS SIDEBAR -->
             <aside class="sidebar">
 
                 <section class="engine-panel">
-
                     <h3>Engine Evaluation</h3>
-
                     <div id="evaluation">0.00</div>
 
-                    <div style="
-                        height:4px;
-                        background:#303b4b;
-                        border-radius:10px;
-                        margin-top:12px;
-                        overflow:hidden;
-                    ">
-                        <div style="
-                            width:50%;
-                            height:100%;
-                            background:#81b64c;
-                            border-radius:10px;
-                        "></div>
+                    <div class="evaluation-track">
+                        <div class="evaluation-fill"></div>
                     </div>
 
                     <h3>Best Move</h3>
-
                     <div id="best-move">-</div>
 
                     <h3>Principal Variation</h3>
-
                     <div id="principal-variation">-</div>
-
                 </section>
 
 
+                <!-- ENGINE CONTROLS -->
                 <section class="controls-panel">
-
-                    <div style="
-                        color:#8994a5;
-                        font-size:10px;
-                        font-weight:800;
-                        letter-spacing:1.5px;
-                        margin-bottom:2px;
-                    ">
-                        ENGINE STRENGTH
-                    </div>
+                    <div class="control-heading">ENGINE STRENGTH</div>
 
                     <div class="mode-selector">
-
                         <button
                             class="mode-btn active"
                             data-depth="22"
                             onclick="setMode(this)"
-                        >
-                            Ekstrim
-                        </button>
+                        >Ekstrim</button>
 
                         <button
                             class="mode-btn"
                             data-depth="18"
                             onclick="setMode(this)"
-                        >
-                            Bijak
-                        </button>
+                        >Bijak</button>
 
                         <button
                             class="mode-btn"
                             data-depth="12"
                             onclick="setMode(this)"
-                        >
-                            Normal
-                        </button>
-
+                        >Normal</button>
                     </div>
 
-                    <div style="
-                        height:1px;
-                        background:#2b3442;
-                        margin:5px 0;
-                    "></div>
+                    <div class="control-divider"></div>
 
-                    <button id="reset-btn">
-                        Reset Papan
-                    </button>
-
-                    <button id="flip-btn">
-                        Putar Papan
-                    </button>
-
+                    <button id="reset-btn">Reset Papan</button>
+                    <button id="flip-btn">Putar Papan</button>
                 </section>
 
             </aside>
-
         </div>
 
 
+        <!-- WEBSITE FOOTER -->
         <footer class="website-footer">
-
-            <p>
-                VINNXMATE CHESS ANALYSIS · POWERED BY STOCKFISH
-            </p>
+            <p>VINNXMATE CHESS ANALYSIS · POWERED BY STOCKFISH</p>
 
             <div class="footer-socials">
-
                 <a
                     href="https://www.tiktok.com/@ZetsuTheDev"
                     target="_blank"
                     rel="noopener noreferrer"
-                >
-                    TikTok · @ZetsuTheDev
-                </a>
+                >TikTok · @ZetsuTheDev</a>
 
                 <a
                     href="https://t.me/TaxxiiOffc"
                     target="_blank"
                     rel="noopener noreferrer"
-                >
-                    Telegram · @TaxxiiOffc
-                </a>
-
+                >Telegram · @TaxxiiOffc</a>
             </div>
 
-            <p style="margin-top:14px;">
+            <p class="copyright">
                 © 2026 VINNX. All rights reserved.
             </p>
-
         </footer>
 
     </main>
 
 
-    <!-- PAGE SCRIPT -->
-
-    <script>
-        function enterWebsite() {
-            const intro = document.getElementById("intro-screen");
-
-            intro.classList.add("hide");
-
-            setTimeout(() => {
-                intro.style.display = "none";
-            }, 650);
-        }
-    </script>
-
+    <!-- CHESS LIBRARY -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+    <!-- MAIN APP SCRIPT -->
     <script src="script.js"></script>
 
 </body>
