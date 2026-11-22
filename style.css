@@ -1,9 +1,13 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+}
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #312e2b; /* Warna dark ala chess.com */
-    color: #e0e0e0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background-color: #312e2b;
+    color: #fff;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -11,60 +15,24 @@ body {
     padding: 20px;
 }
 
-.main-container {
-    display: flex;
-    flex-direction: column;
-    max-width: 1000px;
-    width: 100%;
-    gap: 15px;
-}
+.main-container { max-width: 1000px; width: 100%; }
+.header { margin-bottom: 20px; text-align: center; }
+.header h1 { color: #fff; }
 
-/* Header */
-.header h1 {
-    font-size: 24px;
-    color: #fff;
-    font-weight: 600;
-}
-
-/* Layout Utama (Kiri Kanan) */
 .content-wrapper {
     display: flex;
     gap: 20px;
-    flex-wrap: wrap;
     justify-content: center;
+    flex-wrap: wrap;
 }
 
-/* Sisi Papan Catur */
+/* --- PAPAN CATUR --- */
 .board-section {
-    display: flex;
-    gap: 10px;
     background-color: #262421;
     padding: 10px;
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
 
-/* Evaluation Bar (Kiri Papan) */
-.eval-bar-container {
-    width: 20px;
-    height: 480px;
-    background-color: #403d39;
-    border-radius: 4px;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-}
-
-.eval-bar-fill {
-    width: 100%;
-    height: 50%; /* Default seimbang */
-    background-color: #f0f0f0; /* Warna putih buat keunggulan putih */
-    transition: height 0.3s ease;
-}
-
-/* Papan Catur */
 .board-wrapper {
     position: relative;
     width: 480px;
@@ -72,142 +40,95 @@ body {
 }
 
 .board {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    width: 480px;
+    height: 480px;
     border-radius: 4px;
-    overflow: hidden;
+    overflow: hidden; /* Biar ujungnya tetep melengkung */
+    z-index: 1;
 }
 
 .square {
+    width: 60px;
+    height: 60px;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 42px;
+    font-size: 40px;
     cursor: pointer;
     user-select: none;
 }
 
-/* Warna Papan Chess.com style */
+/* Warna Papan Chess.com */
 .square.light { background-color: #eeeed2; }
 .square.dark { background-color: #769656; }
-.square.selected { background-color: rgba(255, 255, 0, 0.5) !important; }
-.square.highlight { background-color: rgba(255, 255, 0, 0.3) !important; }
 
-/* Sisi Kanan (Sidebar) */
+/* Efek saat dipilih */
+.square.selected { 
+    background-color: rgba(255, 255, 0, 0.6) !important; 
+}
+
+/* --- SIDEBAR --- */
 .sidebar {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    width: 320px;
+    width: 300px;
 }
 
-/* Panel Engine */
 .engine-panel {
     background-color: #262421;
-    border-radius: 8px;
     padding: 15px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    border-radius: 8px;
 }
 
-.panel-header {
-    display: flex;
-    justify-content: space-between;
+.engine-panel h3 {
     font-size: 12px;
     color: #999;
-    margin-bottom: 10px;
-    font-weight: 600;
     text-transform: uppercase;
+    margin-top: 10px;
 }
 
-.eval-score {
+.engine-panel h3:first-child { margin-top: 0; }
+
+#evaluation {
     font-size: 36px;
     font-weight: bold;
-    color: #fff;
-    margin-bottom: 15px;
-    text-align: center;
-}
-
-.best-move-section, .pv-section {
-    margin-bottom: 15px;
-}
-
-.label {
-    font-size: 12px;
-    color: #999;
-    margin-bottom: 5px;
-    text-transform: uppercase;
-}
-
-.value {
-    font-size: 16px;
-    color: #fff;
-    font-weight: 500;
-    line-height: 1.4;
+    color: #81b64c;
 }
 
 #best-move {
-    color: #ffd700;
     font-size: 20px;
+    font-weight: bold;
+    color: #ffd700;
 }
 
 #principal-variation {
-    color: #aaa;
+    font-size: 14px;
+    color: #ccc;
     font-family: monospace;
 }
 
-/* Panel Kontrol */
 .controls-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.mode-selector {
-    display: flex;
-    gap: 8px;
-}
+.mode-selector { display: flex; gap: 8px; }
 
-.mode-btn {
-    flex: 1;
+.mode-btn, button {
     padding: 10px;
     background-color: #3d3a37;
-    color: #ccc;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    transition: 0.2s;
-}
-
-.mode-btn:hover { background-color: #4a4744; }
-.mode-btn.active {
-    background-color: #81b64c; /* Hijau chess.com */
-    color: #fff;
-    box-shadow: 0 0 8px rgba(129, 182, 76, 0.5);
-}
-
-.action-buttons {
-    display: flex;
-    gap: 10px;
-}
-
-.btn-action {
-    flex: 1;
-    padding: 12px;
-    background-color: #3d3a37;
     color: #fff;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-weight: 600;
-    transition: 0.2s;
+    font-weight: bold;
 }
 
-.btn-action:hover { background-color: #4a4744; }
+.mode-btn.active { background-color: #81b64c; }
+button:hover { background-color: #4a4744; }
+#reset-btn, #flip-btn { width: 100%; }
