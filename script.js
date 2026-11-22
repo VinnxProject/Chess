@@ -1,3 +1,4 @@
+
 const boardElement = document.getElementById('board');
 const evalElement = document.getElementById('evaluation');
 const bestMoveElement = document.getElementById('best-move');
@@ -20,6 +21,8 @@ let analysisVersion = 0;
 let activeVersion = 0;
 let activeFen = null;
 let lastBestMove = null;
+
+let redoHistory = [];
 
 const files = 'abcdefgh';
 
@@ -142,12 +145,17 @@ function setMode(btn) {
 
     let depth = Number(btn.dataset.depth);
 
-    // Fallback jika data-depth belum tersedia
-
     if (!Number.isFinite(depth) || depth <= 0) {
-        if (label.includes('ekstrim') || label.includes('extreme')) {
+        if (
+            label.includes('ekstrim') ||
+            label.includes('ekstrem') ||
+            label.includes('extreme')
+        ) {
             depth = 22;
-        } else if (label.includes('bijak') || label.includes('wise')) {
+        } else if (
+            label.includes('bijak') ||
+            label.includes('wise')
+        ) {
             depth = 18;
         } else {
             depth = 12;
@@ -166,6 +174,7 @@ function setMode(btn) {
         enginePaused = false;
     }
 
+    updateEngineButtons();
     analyzePosition();
 }
 
@@ -278,6 +287,127 @@ function runEngine() {
 
     updateEngineButtons();
 
+    analyzePosition();
+}
+
+// ======================================
+// UNDO / REDO MOVE
+// ======================================
+
+function createHistoryControls() {
+    if (document.getElementById('move-history-controls')) return;
+
+    const controls = document.createElement('div');
+
+    controls.id = 'move-history-controls';
+
+    controls.style.cssText = `
+        display:flex;
+        gap:10px;
+        width:100%;
+        margin-top:12px;
+    `;
+
+    controls.innerHTML = `
+        <button id="undo-move" type="button">&lt;&lt;</button>
+        <button id="redo-move" type="button">&gt;&gt;</button>
+    `;
+
+    const style = document.createElement('style');
+
+    style.textContent = `
+        #move-history-controls button {
+            flex:1;
+            min-height:42px;
+            border:0;
+            border-radius:9px;
+            background:#293447;
+            color:white;
+            font-size:20px;
+            font-weight:900;
+            cursor:pointer;
+        }
+
+        #move-history-controls button:disabled {
+            opacity:.35;
+            cursor:not-allowed;
+        }
+
+        #move-history-controls button:not(:disabled):active {
+            transform:scale(.97);
+        }
+    `;
+
+    document.head.appendChild(style);
+
+    const wrapper = document.querySelector('.board-wrapper');
+
+    if (wrapper) {
+        wrapper.insertAdjacentElement('afterend', controls);
+    } else {
+        boardElement.insertAdjacentElement('afterend', controls);
+    }
+
+    document.getElementById('undo-move')
+        .addEventListener('click', undoMove);
+
+    document.getElementById('redo-move')
+        .addEventListener('click', redoMove);
+
+    updateHistoryButtons();
+}
+
+function updateHistoryButtons() {
+    const undoButton = document.getElementById('undo-move');
+    const redoButton = document.getElementById('redo-move');
+
+    if (!undoButton || !redoButton) return;
+
+    undoButton.disabled = game.history().length === 0;
+    redoButton.disabled = redoHistory.length === 0;
+}
+
+function undoMove() {
+    const move = game.undo();
+
+    if (!move) return;
+
+    redoHistory.push(move);
+
+    selectedSquare = null;
+    lastBestMove = null;
+
+    renderBoard();
+    updateHistoryButtons();
+
+    // Analisis hanya diperbarui jika engine sedang berjalan
+    analyzePosition();
+}
+
+function redoMove() {
+    if (redoHistory.length === 0) return;
+
+    const move = redoHistory.pop();
+
+    const result = game.move({
+        from: move.from,
+        to: move.to,
+        promotion: move.promotion || 'q'
+    });
+
+    if (!result) {
+        redoHistory = [];
+        updateHistoryButtons();
+        return;
+    }
+
+    selectedSquare = null;
+    lastBestMove = null;
+
+    renderBoard();
+    updateHistoryButtons();
+
+    // Analisis hanya diperbarui jika engine sedang berjalan
     analyzePosition();
 }
 
@@ -496,10 +626,16 @@ function handleSquareClick(square) {
             });
 
             if (result) {
+                // Langkah baru menghapus riwayat Redo
+                redoHistory = [];
+
                 selectedSquare = null;
                 lastBestMove = null;
 
                 renderBoard();
+                updateHistoryButtons();
+
+                // Engine Stop tidak mengunci permainan
                 analyzePosition();
 
                 return;
@@ -666,8 +802,6 @@ function drawArrow(from, to) {
     const px = -uy;
     const py = ux;
 
-    // Ukuran panah diperkecil
-
     const shaftWidth = 7;
     const headWidth = 19;
     const headLength = 17;
@@ -758,6 +892,8 @@ function handleEngineInfo(line) {
 // ======================================
 
 function analyzePosition() {
+    // Engine Stop hanya menghentikan analisis,
+    // bukan menghentikan permainan catur.
     if (enginePaused) return;
 
     analysisVersion++;
@@ -801,16 +937,27 @@ function startAnalysis() {
 document.getElementById('reset-btn').addEventListener('click', () => {
     game.reset();
 
+    redoHistory = [];
+
     selectedSquare = null;
     lastBestMove = null;
 
     evalElement.textContent = '0.00';
-    bestMoveElement.textContent = 'Analyzing...';
-    pvElement.textContent = 'Calculating...';
+    bestMoveElement.textContent = enginePaused
+        ? 'Engine Stopped'
+        : 'Analyzing...';
+
+    pvElement.textContent = enginePaused
+        ? 'Analysis paused'
+        : 'Calculating...';
 
     arrowLayer.innerHTML = '';
 
     renderBoard();
+    updateHistoryButtons();
+
+    // Jika engine sedang Stop, permainan tetap di-reset
+    // tanpa menjalankan analisis.
     analyzePosition();
 });
 
@@ -847,8 +994,11 @@ arrowLayer.style.cssText = `
 `;
 
 createEngineControls();
+createHistoryControls();
 
 renderBoard();
+
+updateHistoryButtons();
 
 evalElement.textContent = '0.00';
 bestMoveElement.textContent = 'Waiting for Stockfish...';
