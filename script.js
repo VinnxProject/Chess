@@ -1,3 +1,4 @@
+
 // ======================================
 // VINNXMATE WELCOME SYSTEM
 // ======================================
@@ -10,28 +11,28 @@ let joinConfirmCount = 0;
 const welcomeCompleted =
     localStorage.getItem('vinnxmate_welcome_completed') === 'true';
 
-if (welcomeCompleted) {
-    welcomePopup.style.display = 'none';
-} else {
-    welcomePopup.style.display = 'flex';
+if (welcomePopup) {
+    welcomePopup.style.display = welcomeCompleted ? 'none' : 'flex';
 }
 
-confirmJoinButton.addEventListener('click', function () {
-    joinConfirmCount++;
+if (confirmJoinButton) {
+    confirmJoinButton.addEventListener('click', function () {
+        joinConfirmCount++;
 
-    if (joinConfirmCount >= 3) {
-        localStorage.setItem(
-            'vinnxmate_welcome_completed',
-            'true'
-        );
+        if (joinConfirmCount >= 3) {
+            localStorage.setItem(
+                'vinnxmate_welcome_completed',
+                'true'
+            );
 
-        welcomePopup.classList.add('hide');
+            welcomePopup.classList.add('hide');
 
-        setTimeout(() => {
-            welcomePopup.style.display = 'none';
-        }, 350);
-    }
-});
+            setTimeout(() => {
+                welcomePopup.style.display = 'none';
+            }, 350);
+        }
+    });
+}
 
 
 // ======================================
@@ -40,6 +41,8 @@ confirmJoinButton.addEventListener('click', function () {
 
 function enterWebsite() {
     const intro = document.getElementById('intro-screen');
+
+    if (!intro) return;
 
     intro.classList.add('hide');
 
@@ -96,6 +99,19 @@ let reviewScore = null;
 let reviewBestMove = null;
 
 const reviewResults = [];
+
+
+// ======================================
+// LIVE MOVE CLASSIFICATION STATE
+// ======================================
+
+const liveMoveEntries = [];
+
+const liveReviewQueue = [];
+
+let liveReviewProcessing = false;
+
+let liveQueueWaiters = [];
 
 
 // ======================================
@@ -381,6 +397,11 @@ function undoMove() {
     selectedSquare = null;
     lastBestMove = null;
 
+    // Remove classification for the undone move.
+    liveMoveEntries.pop();
+
+    updateLiveMoveUI();
+
     renderBoard();
     updateHistoryButtons();
     clearReviewResults();
@@ -392,6 +413,8 @@ function redoMove() {
     if (redoHistory.length === 0) return;
 
     const move = redoHistory.pop();
+
+    const beforeFen = game.fen();
 
     const result = game.move({
         from: move.from,
@@ -405,14 +428,492 @@ function redoMove() {
         return;
     }
 
+    const afterFen = game.fen();
+
     selectedSquare = null;
     lastBestMove = null;
+
+    registerLiveMove(beforeFen, result, afterFen);
 
     renderBoard();
     updateHistoryButtons();
     clearReviewResults();
 
     analyzePosition();
+}
+
+
+// ======================================
+// LIVE MOVE CLASSIFICATION UI
+// ======================================
+
+function createLiveMoveUI() {
+    if (document.getElementById('live-move-feedback')) return;
+
+    const container = document.createElement('div');
+
+    container.id = 'live-move-feedback';
+
+    container.innerHTML = `
+        <div class="live-move-heading">
+            LIVE MOVE ANALYSIS
+        </div>
+
+        <div id="live-move-label">
+            Waiting for your move...
+        </div>
+
+        <div id="live-move-detail">
+            Play a move to receive engine feedback.
+        </div>
+
+        <div id="live-move-list"></div>
+    `;
+
+    const style = document.createElement('style');
+
+    style.textContent = `
+        #live-move-feedback {
+            width: 100%;
+            margin-top: 12px;
+            padding: 15px;
+            background: #191e27;
+            border: 1px solid #2b3442;
+            border-radius: 12px;
+            color: #fff;
+            box-sizing: border-box;
+        }
+
+        .live-move-heading {
+            color: #8994a5;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            margin-bottom: 10px;
+        }
+
+        #live-move-label {
+            font-size: 20px;
+            font-weight: 900;
+            color: #81b64c;
+        }
+
+        #live-move-detail {
+            color: #8994a5;
+            font-size: 12px;
+            margin-top: 7px;
+            line-height: 1.6;
+        }
+
+        #live-move-list {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            margin-top: 14px;
+        }
+
+        .live-move-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 10px;
+            background: #222a36;
+            border-radius: 7px;
+            font-size: 12px;
+        }
+
+        .live-move-name {
+            color: #e5eaf2;
+            font-weight: 800;
+        }
+
+        .live-move-result {
+            font-weight: 800;
+            text-align: right;
+        }
+
+        .live-pending {
+            color: #8994a5;
+        }
+
+        .live-best {
+            color: #81b64c;
+        }
+
+        .live-great {
+            color: #159b8b;
+        }
+
+        .live-excellent {
+            color: #579b72;
+        }
+
+        .live-good {
+            color: #77a7d0;
+        }
+
+        .live-inaccuracy {
+            color: #c49b39;
+        }
+
+        .live-mistake {
+            color: #d47737;
+        }
+
+        .live-blunder {
+            color: #e05252;
+        }
+    `;
+
+    document.head.appendChild(style);
+
+    const historyControls = document.getElementById(
+        'move-history-controls'
+    );
+
+    if (historyControls) {
+        historyControls.insertAdjacentElement(
+            'afterend',
+            container
+        );
+    } else {
+        const wrapper = document.querySelector('.board-wrapper');
+
+        if (wrapper) {
+            wrapper.insertAdjacentElement('afterend', container);
+        } else {
+            boardElement.insertAdjacentElement('afterend', container);
+        }
+    }
+
+    updateLiveMoveUI();
+}
+
+
+// ======================================
+// UPDATE LIVE MOVE UI
+// ======================================
+
+function updateLiveMoveUI() {
+    const list = document.getElementById('live-move-list');
+
+    if (!list) return;
+
+    list.innerHTML = '';
+
+    if (liveMoveEntries.length === 0) {
+        list.innerHTML = `
+            <div style="
+                color:#8994a5;
+                font-size:11px;
+                padding:8px 0;
+            ">
+                No moves analyzed yet.
+            </div>
+        `;
+        return;
+    }
+
+    liveMoveEntries.forEach(entry => {
+        const row = document.createElement('div');
+
+        row.className = 'live-move-row';
+
+        const moveName = document.createElement('span');
+        moveName.className = 'live-move-name';
+
+        moveName.textContent =
+            `${entry.number}${entry.color === 'b' ? '...' : '.'} ${entry.san}`;
+
+        const result = document.createElement('span');
+        result.className = 'live-move-result';
+
+        if (entry.classification) {
+            result.textContent =
+                `${entry.classification.symbol} ${entry.classification.label}`;
+
+            result.classList.add(entry.classification.liveClass);
+        } else if (entry.error) {
+            result.textContent = 'Unavailable';
+            result.classList.add('live-pending');
+        } else {
+            result.textContent = 'Analyzing...';
+            result.classList.add('live-pending');
+        }
+
+        row.appendChild(moveName);
+        row.appendChild(result);
+
+        list.appendChild(row);
+    });
+
+    list.scrollTop = list.scrollHeight;
+}
+
+
+// ======================================
+// UPDATE LATEST LIVE FEEDBACK
+// ======================================
+
+function updateLatestLiveFeedback(entry) {
+    const labelElement = document.getElementById(
+        'live-move-label'
+    );
+
+    const detailElement = document.getElementById(
+        'live-move-detail'
+    );
+
+    if (!labelElement || !detailElement) return;
+
+    if (entry.classification) {
+        labelElement.textContent =
+            `${entry.classification.symbol} ${entry.classification.label}`;
+
+        labelElement.style.color =
+            entry.classification.color;
+
+        detailElement.textContent =
+            `${entry.san} · Evaluation loss: ${entry.loss.toFixed(2)} · ${entry.classification.description}`;
+
+    } else if (entry.error) {
+        labelElement.textContent = 'Analysis unavailable';
+        labelElement.style.color = '#d47737';
+
+        detailElement.textContent = entry.error;
+
+    } else {
+        labelElement.textContent = 'Analyzing move...';
+        labelElement.style.color = '#81b64c';
+
+        detailElement.textContent =
+            `${entry.san} · Waiting for Stockfish evaluation`;
+    }
+}
+
+
+// ======================================
+// REGISTER LIVE MOVE
+// ======================================
+
+function registerLiveMove(beforeFen, move, afterFen) {
+    const historyLength = game.history().length;
+
+    const entry = {
+        beforeFen,
+        afterFen,
+        move,
+        san: move.san,
+        color: move.color,
+        number: Math.ceil(historyLength / 2),
+        classification: null,
+        loss: null,
+        error: null
+    };
+
+    liveMoveEntries.push(entry);
+    liveReviewQueue.push(entry);
+
+    updateLiveMoveUI();
+    updateLatestLiveFeedback(entry);
+
+    processLiveReviewQueue();
+}
+
+
+// ======================================
+// LIVE REVIEW QUEUE
+// ======================================
+
+async function processLiveReviewQueue() {
+    if (liveReviewProcessing || reviewBusy) return;
+
+    if (liveReviewQueue.length === 0) {
+        notifyLiveQueueWaiters();
+        return;
+    }
+
+    liveReviewProcessing = true;
+
+    try {
+        await initializeReviewWorker();
+
+        while (liveReviewQueue.length > 0 && !reviewBusy) {
+            const entry = liveReviewQueue.shift();
+
+            // Skip moves that were undone.
+            if (!liveMoveEntries.includes(entry)) {
+                continue;
+            }
+
+            try {
+                const before = await reviewPosition(
+                    entry.beforeFen
+                );
+
+                const after = await reviewPosition(
+                    entry.afterFen
+                );
+
+                // Ignore results if the move was undone during analysis.
+                if (!liveMoveEntries.includes(entry)) {
+                    continue;
+                }
+
+                if (
+                    before.score === null ||
+                    after.score === null
+                ) {
+                    throw new Error('Engine evaluation unavailable');
+                }
+
+                // Score is from the side-to-move perspective.
+                // Before the move: mover's perspective.
+                // After the move: opponent's perspective.
+                const beforeMoverScore = before.score;
+                const afterMoverScore = -after.score;
+
+                const loss = Math.max(
+                    0,
+                    beforeMoverScore - afterMoverScore
+                );
+
+                const moveUci =
+                    entry.move.from +
+                    entry.move.to +
+                    (entry.move.promotion || '');
+
+                const isBestMove =
+                    before.bestMove === moveUci;
+
+                const classification = getMoveLabel(
+                    loss,
+                    isBestMove,
+                    entry.move,
+                    entry.afterFen
+                );
+
+                entry.loss = loss;
+                entry.classification = {
+                    ...classification,
+                    color: getClassificationColor(classification.label),
+                    liveClass: getLiveClass(classification.label),
+                    description: isBestMove
+                        ? 'Engine recommended this move'
+                        : 'Compared with engine evaluation'
+                };
+
+                updateLiveMoveUI();
+
+                if (
+                    liveMoveEntries[liveMoveEntries.length - 1] === entry
+                ) {
+                    updateLatestLiveFeedback(entry);
+                }
+
+            } catch (error) {
+                console.error('Live move analysis error:', error);
+
+                entry.error =
+                    error.message || 'Could not analyze this move.';
+
+                updateLiveMoveUI();
+
+                if (
+                    liveMoveEntries[liveMoveEntries.length - 1] === entry
+                ) {
+                    updateLatestLiveFeedback(entry);
+                }
+            }
+        }
+
+    } catch (error) {
+        console.error('Live review worker error:', error);
+
+        liveReviewQueue.forEach(entry => {
+            entry.error = 'Review engine unavailable';
+        });
+
+        liveReviewQueue.length = 0;
+
+        updateLiveMoveUI();
+
+    } finally {
+        liveReviewProcessing = false;
+
+        notifyLiveQueueWaiters();
+
+        if (liveReviewQueue.length > 0 && !reviewBusy) {
+            processLiveReviewQueue();
+        }
+    }
+}
+
+
+// ======================================
+// WAIT FOR LIVE QUEUE
+// ======================================
+
+function waitForLiveQueue() {
+    if (
+        !liveReviewProcessing &&
+        liveReviewQueue.length === 0
+    ) {
+        return Promise.resolve();
+    }
+
+    return new Promise(resolve => {
+        liveQueueWaiters.push(resolve);
+    });
+}
+
+function notifyLiveQueueWaiters() {
+    if (
+        liveReviewProcessing ||
+        liveReviewQueue.length > 0
+    ) {
+        return;
+    }
+
+    const waiters = liveQueueWaiters.slice();
+
+    liveQueueWaiters = [];
+
+    waiters.forEach(resolve => resolve());
+}
+
+
+// ======================================
+// LIVE CLASSIFICATION COLORS
+// ======================================
+
+function getClassificationColor(label) {
+    const colors = {
+        'Best Move': '#81b64c',
+        'Great Move': '#159b8b',
+        'Excellent': '#579b72',
+        'Good': '#77a7d0',
+        'Inaccuracy': '#c49b39',
+        'Mistake': '#d47737',
+        'Blunder': '#e05252'
+    };
+
+    return colors[label] || '#8994a5';
+}
+
+function getLiveClass(label) {
+    const classes = {
+        'Best Move': 'live-best',
+        'Great Move': 'live-great',
+        'Excellent': 'live-excellent',
+        'Good': 'live-good',
+        'Inaccuracy': 'live-inaccuracy',
+        'Mistake': 'live-mistake',
+        'Blunder': 'live-blunder'
+    };
+
+    return classes[label] || 'live-pending';
 }
 
 
@@ -440,13 +941,19 @@ function createReviewControls() {
         <div id="game-review-results"></div>
     `;
 
-    const wrapper = document.querySelector('.board-wrapper');
+    const livePanel = document.getElementById(
+        'live-move-feedback'
+    );
 
     const historyControls = document.getElementById(
         'move-history-controls'
     );
 
-    if (historyControls) {
+    const wrapper = document.querySelector('.board-wrapper');
+
+    if (livePanel) {
+        livePanel.insertAdjacentElement('afterend', container);
+    } else if (historyControls) {
         historyControls.insertAdjacentElement('afterend', container);
     } else if (wrapper) {
         wrapper.insertAdjacentElement('afterend', container);
@@ -575,6 +1082,11 @@ function reviewPosition(fen) {
     return new Promise((resolve, reject) => {
         if (!reviewWorker || !reviewReady) {
             reject(new Error('Review engine not ready'));
+            return;
+        }
+
+        if (reviewResolve) {
+            reject(new Error('Review engine is already analyzing'));
             return;
         }
 
@@ -726,16 +1238,21 @@ async function startGameReview() {
         return;
     }
 
-    reviewBusy = true;
-    reviewCancelled = false;
-
-    button.textContent = 'CANCEL REVIEW';
-    results.innerHTML = '';
-    summary.innerHTML = '';
-
-    reviewResults.length = 0;
-
     try {
+        status.textContent = 'Finishing live move analysis...';
+
+        // Wait for live classifications to finish first.
+        await waitForLiveQueue();
+
+        reviewBusy = true;
+        reviewCancelled = false;
+
+        button.textContent = 'CANCEL REVIEW';
+        results.innerHTML = '';
+        summary.innerHTML = '';
+
+        reviewResults.length = 0;
+
         status.textContent = 'Starting review engine...';
 
         await initializeReviewWorker();
@@ -859,6 +1376,9 @@ async function startGameReview() {
     } finally {
         reviewBusy = false;
         button.textContent = 'REVIEW GAME';
+
+        // Continue any moves played during Game Review.
+        processLiveReviewQueue();
     }
 }
 
@@ -1140,6 +1660,9 @@ function handleSquareClick(square) {
         const legalMove = moves.find(move => move.to === pos);
 
         if (legalMove) {
+            // Save position BEFORE making the move.
+            const beforeFen = game.fen();
+
             const result = game.move({
                 from: selectedSquare,
                 to: pos,
@@ -1147,10 +1670,19 @@ function handleSquareClick(square) {
             });
 
             if (result) {
+                // Save position AFTER making the move.
+                const afterFen = game.fen();
+
                 redoHistory = [];
 
                 selectedSquare = null;
                 lastBestMove = null;
+
+                registerLiveMove(
+                    beforeFen,
+                    result,
+                    afterFen
+                );
 
                 renderBoard();
                 updateHistoryButtons();
@@ -1467,7 +1999,27 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     selectedSquare = null;
     lastBestMove = null;
 
+    // Clear live classifications.
+    liveMoveEntries.length = 0;
+    liveReviewQueue.length = 0;
+
+    updateLiveMoveUI();
+
+    const liveLabel = document.getElementById('live-move-label');
+    const liveDetail = document.getElementById('live-move-detail');
+
+    if (liveLabel) {
+        liveLabel.textContent = 'Waiting for your move...';
+        liveLabel.style.color = '#81b64c';
+    }
+
+    if (liveDetail) {
+        liveDetail.textContent =
+            'Play a move to receive engine feedback.';
+    }
+
     evalElement.textContent = '0.00';
+
     bestMoveElement.textContent = enginePaused
         ? 'Engine Stopped'
         : 'Analyzing...';
@@ -1521,6 +2073,7 @@ arrowLayer.style.cssText = `
 
 createEngineControls();
 createHistoryControls();
+createLiveMoveUI();
 createReviewControls();
 
 renderBoard();
