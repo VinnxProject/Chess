@@ -5,7 +5,7 @@ const pvElement = document.getElementById('principal-variation');
 
 const game = new Chess();
 let selectedSquare = null;
-let stockfish = new Worker('stockfish.js');
+let stockfish = new Worker('stockfish-19-asm.js');
 
 // Default Mode Ekstrim (Depth 22)
 let currentDepth = 22; 
