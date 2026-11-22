@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vines Chess Analysis</title>
+    <title>Vinnx Chess Analysis</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,8 +11,11 @@
         <h1>♟️ Vines Chess Analysis</h1>
         
         <div class="main-layout">
-            <!-- Papan Catur -->
-            <div id="board" class="board"></div>
+            <!-- Papan Catur & Layer Panah -->
+            <div class="board-wrapper">
+                <svg id="arrow-layer" viewBox="0 0 480 480" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></svg>
+                <div id="board" class="board"></div>
+            </div>
 
             <!-- Panel Analisis -->
             <div class="analysis-panel">
@@ -47,8 +50,8 @@
 
     <!-- Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <!-- Stockfish.js (WASM) -->
-    <script src="stockfish.js"></script>
+    <!-- PENTING: Load file stockfish-19-asm.js -->
+    <script src="stockfish-19-asm.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
