@@ -1,4 +1,3 @@
-
 const boardElement = document.getElementById('board');
 const evalElement = document.getElementById('evaluation');
 const bestMoveElement = document.getElementById('best-move');
@@ -11,10 +10,11 @@ let selectedSquare = null;
 let flipped = false;
 let currentDepth = 22;
 
-let stockfish;
+let stockfish = null;
 let engineReady = false;
 let searching = false;
 let pendingAnalysis = false;
+let enginePaused = false;
 
 let analysisVersion = 0;
 let activeVersion = 0;
@@ -22,6 +22,29 @@ let activeFen = null;
 let lastBestMove = null;
 
 const files = 'abcdefgh';
+
+// ======================================
+// CHESS PIECES
+// ======================================
+
+const pieceSymbols = {
+    w: {
+        p: '♙',
+        r: '♖',
+        n: '♘',
+        b: '♗',
+        q: '♕',
+        k: '♔'
+    },
+    b: {
+        p: '♟',
+        r: '♜',
+        n: '♞',
+        b: '♝',
+        q: '♛',
+        k: '♚'
+    }
+};
 
 // ======================================
 // ENGINE INITIALIZATION
@@ -40,12 +63,23 @@ try {
 
         if (line === 'readyok') {
             engineReady = true;
-            startAnalysis();
+
+            if (!enginePaused) {
+                startAnalysis();
+            }
+
+            updateEngineButtons();
             return;
         }
 
         if (line.startsWith('info depth')) {
-            if (activeVersion !== analysisVersion) return;
+            if (
+                enginePaused ||
+                activeVersion !== analysisVersion
+            ) {
+                return;
+            }
+
             handleEngineInfo(line);
             return;
         }
@@ -53,7 +87,15 @@ try {
         if (line.startsWith('bestmove')) {
             searching = false;
 
-            if (activeVersion !== analysisVersion || pendingAnalysis) {
+            if (enginePaused) {
+                updateEngineButtons();
+                return;
+            }
+
+            if (
+                activeVersion !== analysisVersion ||
+                pendingAnalysis
+            ) {
                 pendingAnalysis = false;
                 startAnalysis();
                 return;
@@ -65,28 +107,38 @@ try {
             if (!uci || uci === '(none)') {
                 bestMoveElement.textContent = 'No legal move';
                 pvElement.textContent = '-';
+
                 lastBestMove = null;
                 drawArrow();
+
                 return;
             }
 
             displayBestMove(uci);
+            updateEngineButtons();
         }
     };
 
     stockfish.onerror = function(error) {
         console.error('Stockfish error:', error);
+
+        engineReady = false;
+        searching = false;
+
         bestMoveElement.textContent = 'Engine Error';
         pvElement.textContent = 'Check Stockfish file';
+
+        updateEngineButtons();
     };
 
     stockfish.postMessage('uci');
 
 } catch (error) {
     console.error(error);
-    bestMoveElement.textContent = 'Engine unavailable';
-}
 
+    bestMoveElement.textContent = 'Engine unavailable';
+    pvElement.textContent = 'Stockfish could not start';
+}
 
 // ======================================
 // ENGINE MODE
@@ -104,6 +156,122 @@ function setMode(btn) {
     analyzePosition();
 }
 
+// ======================================
+// ENGINE BUTTONS
+// ======================================
+
+function createEngineControls() {
+    if (document.getElementById('engine-controls')) return;
+
+    const modeButton = document.querySelector('.mode-btn');
+
+    if (!modeButton) return;
+
+    const controls = document.createElement('div');
+
+    controls.id = 'engine-controls';
+    controls.className = 'engine-controls';
+
+    controls.style.cssText = `
+        display:flex;
+        gap:10px;
+        width:100%;
+        margin-top:12px;
+    `;
+
+    controls.innerHTML = `
+        <button id="engine-stop" type="button">
+            Stop
+        </button>
+
+        <button id="engine-run" type="button">
+            Run
+        </button>
+    `;
+
+    const style = document.createElement('style');
+
+    style.textContent = `
+        #engine-controls button {
+            flex:1;
+            min-height:42px;
+            border:0;
+            border-radius:9px;
+            font-size:14px;
+            font-weight:800;
+            cursor:pointer;
+        }
+
+        #engine-stop {
+            background:#c0392b;
+            color:white;
+        }
+
+        #engine-run {
+            background:#81b64c;
+            color:#101710;
+        }
+
+        #engine-controls button:disabled {
+            opacity:.45;
+            cursor:not-allowed;
+        }
+    `;
+
+    document.head.appendChild(style);
+
+    modeButton.parentElement.insertAdjacentElement(
+        'afterend',
+        controls
+    );
+
+    document.getElementById('engine-stop')
+        .addEventListener('click', stopEngine);
+
+    document.getElementById('engine-run')
+        .addEventListener('click', runEngine);
+
+    updateEngineButtons();
+}
+
+function updateEngineButtons() {
+    const stopButton = document.getElementById('engine-stop');
+    const runButton = document.getElementById('engine-run');
+
+    if (!stopButton || !runButton) return;
+
+    stopButton.disabled = enginePaused || !engineReady;
+    runButton.disabled = !enginePaused || !engineReady;
+}
+
+function stopEngine() {
+    if (enginePaused || !engineReady) return;
+
+    enginePaused = true;
+    pendingAnalysis = false;
+
+    analysisVersion++;
+
+    if (searching && stockfish) {
+        stockfish.postMessage('stop');
+    }
+
+    bestMoveElement.textContent = 'Engine Stopped';
+    pvElement.textContent = 'Analysis paused';
+
+    updateEngineButtons();
+}
+
+function runEngine() {
+    if (!engineReady || !enginePaused) return;
+
+    enginePaused = false;
+    pendingAnalysis = false;
+
+    updateEngineButtons();
+
+    analyzePosition();
+}
 
 // ======================================
 // BOARD RENDER
@@ -112,8 +280,8 @@ function setMode(btn) {
 function renderBoard() {
     boardElement.innerHTML = '';
 
-    // Jangan gunakan rotate(180deg).
-    // Posisi bidak diubah melalui urutan kotak.
+    // Board tidak diputar menggunakan CSS.
+    // Kotak disusun ulang agar bidak tetap tegak.
 
     boardElement.style.transform = 'none';
     arrowLayer.style.transform = 'none';
@@ -137,7 +305,9 @@ function renderBoard() {
 
             const isLight = (rank + fileIndex) % 2 === 0;
 
-            square.className = `square ${isLight ? 'light' : 'dark'}`;
+            square.className =
+                `square ${isLight ? 'light' : 'dark'}`;
+
             square.dataset.pos = pos;
 
             square.style.position = 'relative';
@@ -146,29 +316,34 @@ function renderBoard() {
             const piece = game.get(pos);
 
             if (piece) {
-                const symbols = {
-                    p: '♟',
-                    r: '♜',
-                    n: '♞',
-                    b: '♝',
-                    q: '♛',
-                    k: '♚',
-                    P: '♙',
-                    R: '♖',
-                    N: '♘',
-                    B: '♗',
-                    Q: '♕',
-                    K: '♔'
-                };
+                const pieceElement = document.createElement('span');
 
-                square.textContent = symbols[
-                    piece.color === 'w'
-                        ? piece.type.toUpperCase()
-                        : piece.type
-                ];
+                pieceElement.className = 'chess-piece';
 
-                square.style.color =
-                    piece.color === 'w' ? '#ffffff' : '#000000';
+                pieceElement.textContent =
+                    pieceSymbols[piece.color][piece.type];
+
+                pieceElement.style.cssText = `
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    width:100%;
+                    height:100%;
+                    position:relative;
+                    z-index:2;
+                    font-family:"DejaVu Sans","Noto Sans Symbols 2",serif;
+                    font-size:clamp(30px, 8vw, 58px);
+                    line-height:1;
+                    transform:none;
+                    pointer-events:none;
+                    user-select:none;
+                    color:${piece.color === 'w' ? '#ffffff' : '#080808'};
+                    text-shadow:${piece.color === 'w'
+                        ? '0 1px 2px rgba(0,0,0,.45)'
+                        : '0 1px 1px rgba(255,255,255,.15)'};
+                `;
+
+                square.appendChild(pieceElement);
             }
 
             // Coordinate labels
@@ -177,6 +352,7 @@ function renderBoard() {
                 const rankLabel = document.createElement('span');
 
                 rankLabel.textContent = rank;
+
                 rankLabel.style.cssText = `
                     position:absolute;
                     top:2px;
@@ -185,8 +361,8 @@ function renderBoard() {
                     font-weight:800;
                     opacity:.7;
                     pointer-events:none;
-                    z-index:3;
-                    color:inherit;
+                    z-index:4;
+                    color:${isLight ? '#769656' : '#eeeed2'};
                 `;
 
                 square.appendChild(rankLabel);
@@ -196,6 +372,7 @@ function renderBoard() {
                 const fileLabel = document.createElement('span');
 
                 fileLabel.textContent = files[fileIndex];
+
                 fileLabel.style.cssText = `
                     position:absolute;
                     bottom:2px;
@@ -204,8 +381,8 @@ function renderBoard() {
                     font-weight:800;
                     opacity:.7;
                     pointer-events:none;
-                    z-index:3;
-                    color:inherit;
+                    z-index:4;
+                    color:${isLight ? '#769656' : '#eeeed2'};
                 `;
 
                 square.appendChild(fileLabel);
@@ -226,9 +403,10 @@ function renderBoard() {
 
     if (lastBestMove) {
         drawArrow(lastBestMove.from, lastBestMove.to);
+    } else {
+        arrowLayer.innerHTML = '';
     }
 }
-
 
 // ======================================
 // SELECTED SQUARE
@@ -241,9 +419,9 @@ function highlightSelected(pos) {
 
     if (!square) return;
 
-    square.style.boxShadow = 'inset 0 0 0 4px #facc15';
+    square.style.boxShadow =
+        'inset 0 0 0 4px #facc15';
 }
-
 
 // ======================================
 // LEGAL MOVE INDICATORS
@@ -283,13 +461,13 @@ function showLegalMoves(from) {
             marker.style.width = '85%';
             marker.style.height = '85%';
             marker.style.background = 'transparent';
-            marker.style.border = '5px solid rgba(25,100,45,.65)';
+            marker.style.border =
+                '5px solid rgba(25,100,45,.65)';
         }
 
         square.appendChild(marker);
     });
 }
-
 
 // ======================================
 // CLICK INTERACTION
@@ -345,7 +523,6 @@ function handleSquareClick(square) {
     }
 }
 
-
 // ======================================
 // CONVERT UCI TO SAN
 // ======================================
@@ -367,7 +544,6 @@ function uciToSan(uci, fen) {
     }
 }
 
-
 // ======================================
 // PRINCIPAL VARIATION
 // ======================================
@@ -380,6 +556,10 @@ function convertPV(pv, fen) {
         const result = [];
 
         moves.forEach(uci => {
+            if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) {
+                return;
+            }
+
             const move = temp.move({
                 from: uci.substring(0, 2),
                 to: uci.substring(2, 4),
@@ -398,12 +578,13 @@ function convertPV(pv, fen) {
     }
 }
 
-
 // ======================================
 // DISPLAY BEST MOVE
 // ======================================
 
 function displayBestMove(uci) {
+    if (!uci || uci.length < 4) return;
+
     const from = uci.substring(0, 2);
     const to = uci.substring(2, 4);
 
@@ -430,7 +611,6 @@ function displayBestMove(uci) {
     drawArrow(from, to);
 }
 
-
 // ======================================
 // DRAW ANALYSIS ARROW
 // ======================================
@@ -446,52 +626,92 @@ function drawArrow(from, to) {
     const toFile = files.indexOf(to[0]);
     const toRank = Number(to[1]);
 
-    // Posisi visual menyesuaikan orientasi papan.
+    if (
+        fromFile < 0 ||
+        toFile < 0 ||
+        fromRank < 1 ||
+        fromRank > 8 ||
+        toRank < 1 ||
+        toRank > 8
+    ) {
+        return;
+    }
 
-    const x1 = ((flipped ? 7 - fromFile : fromFile) * 60) + 30;
-    const y1 = ((flipped ? fromRank - 1 : 8 - fromRank) * 60) + 30;
+    const x1 =
+        ((flipped ? 7 - fromFile : fromFile) * 60) + 30;
 
-    const x2 = ((flipped ? 7 - toFile : toFile) * 60) + 30;
-    const y2 = ((flipped ? toRank - 1 : 8 - toRank) * 60) + 30;
+    const y1 =
+        ((flipped ? fromRank - 1 : 8 - fromRank) * 60) + 30;
 
-    const ns = 'http://www.w3.org/2000/svg';
+    const x2 =
+        ((flipped ? 7 - toFile : toFile) * 60) + 30;
 
-    const defs = document.createElementNS(ns, 'defs');
+    const y2 =
+        ((flipped ? toRank - 1 : 8 - toRank) * 60) + 30;
 
-    defs.innerHTML = `
-        <marker
-            id="vinnx-arrowhead"
-            markerWidth="10"
-            markerHeight="10"
-            refX="8"
-            refY="5"
-            orient="auto"
-        >
-            <polygon
-                points="0 0, 10 5, 0 10"
-                fill="#ffd700"
-            />
-        </marker>
-    `;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
 
-    arrowLayer.appendChild(defs);
+    const length = Math.sqrt(dx * dx + dy * dy);
 
-    const arrow = document.createElementNS(ns, 'line');
+    if (!length) return;
 
-    arrow.setAttribute('x1', x1);
-    arrow.setAttribute('y1', y1);
-    arrow.setAttribute('x2', x2);
-    arrow.setAttribute('y2', y2);
+    const ux = dx / length;
+    const uy = dy / length;
 
-    arrow.setAttribute('stroke', '#ffd700');
-    arrow.setAttribute('stroke-width', '8');
-    arrow.setAttribute('stroke-linecap', 'round');
-    arrow.setAttribute('marker-end', 'url(#vinnx-arrowhead)');
-    arrow.setAttribute('opacity', '0.9');
+    const px = -uy;
+    const py = ux;
 
-    arrowLayer.appendChild(arrow);
+    const shaftWidth = 13;
+    const headWidth = 34;
+    const headLength = 29;
+
+    const tipX = x2 - ux * 8;
+    const tipY = y2 - uy * 8;
+
+    const baseX = tipX - ux * headLength;
+    const baseY = tipY - uy * headLength;
+
+    const startX = x1 + ux * 13;
+    const startY = y1 + uy * 13;
+
+    const points = [
+        [startX + px * shaftWidth / 2,
+            startY + py * shaftWidth / 2],
+
+        [baseX + px * shaftWidth / 2,
+            baseY + py * shaftWidth / 2],
+
+        [baseX + px * headWidth / 2,
+            baseY + py * headWidth / 2],
+
+        [tipX, tipY],
+
+        [baseX - px * headWidth / 2,
+            baseY - py * headWidth / 2],
+
+        [baseX - px * shaftWidth / 2,
+            baseY - py * shaftWidth / 2],
+
+        [startX - px * shaftWidth / 2,
+            startY - py * shaftWidth / 2]
+    ];
+
+    const polygon = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'polygon'
+    );
+
+    polygon.setAttribute(
+        'points',
+        points.map(point => point.join(',')).join(' ')
+    );
+
+    polygon.setAttribute('fill', '#81b64c');
+    polygon.setAttribute('opacity', '0.88');
+
+    arrowLayer.appendChild(polygon);
 }
-
 
 // ======================================
 // ENGINE INFO
@@ -500,6 +720,8 @@ function drawArrow(from, to) {
 function handleEngineInfo(line) {
     const cpMatch = line.match(/score cp (-?\d+)/);
     const mateMatch = line.match(/score mate (-?\d+)/);
+
+    if (!activeFen) return;
 
     const turn = activeFen.split(' ')[1];
 
@@ -525,18 +747,31 @@ function handleEngineInfo(line) {
     const pvMatch = line.match(/\spv (.+)$/);
 
     if (pvMatch) {
+        const pvMoves = pvMatch[1].trim().split(/\s+/);
+
         const pv = convertPV(pvMatch[1], activeFen);
 
         pvElement.textContent = pv || '-';
+
+        // Tampilkan kandidat Best Move secepatnya.
+        // Tidak perlu menunggu bestmove dari engine.
+
+        if (
+            pvMoves.length > 0 &&
+            /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(pvMoves[0])
+        ) {
+            displayBestMove(pvMoves[0]);
+        }
     }
 }
-
 
 // ======================================
 // ANALYSIS CONTROL
 // ======================================
 
 function analyzePosition() {
+    if (enginePaused) return;
+
     analysisVersion++;
 
     lastBestMove = null;
@@ -557,19 +792,20 @@ function analyzePosition() {
     startAnalysis();
 }
 
-
 function startAnalysis() {
-    if (!engineReady) return;
+    if (!engineReady || enginePaused) return;
 
     activeVersion = analysisVersion;
     activeFen = game.fen();
 
     searching = true;
+    pendingAnalysis = false;
 
     stockfish.postMessage('position fen ' + activeFen);
     stockfish.postMessage('go depth ' + currentDepth);
-}
 
+    updateEngineButtons();
+}
 
 // ======================================
 // RESET
@@ -591,7 +827,6 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     analyzePosition();
 });
 
-
 // ======================================
 // FLIP BOARD
 // ======================================
@@ -603,16 +838,16 @@ document.getElementById('flip-btn').addEventListener('click', () => {
 
     renderBoard();
 
-    // Panah ikut menyesuaikan orientasi.
     if (lastBestMove) {
         drawArrow(lastBestMove.from, lastBestMove.to);
     }
 });
 
-
 // ======================================
 // INITIALIZATION
 // ======================================
+
+createEngineControls();
 
 renderBoard();
 
