@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vines Chess Analysis</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>♟️ Vines Chess Analysis</h1>
+        
+        <div class="main-layout">
+            <!-- Papan Catur -->
+            <div id="board" class="board"></div>
+
+            <!-- Panel Analisis -->
+            <div class="analysis-panel">
+                <div class="eval-box">
+                    <h3>Evaluasi</h3>
+                    <div id="evaluation">0.00</div>
+                </div>
+                <div class="best-move-box">
+                    <h3>Langkah Terbaik</h3>
+                    <div id="best-move">-</div>
+                </div>
+                <div class="pv-box">
+                    <h3>Variasi Utama (PV)</h3>
+                    <div id="principal-variation">-</div>
+                </div>
+                
+                <!-- Mode Analisis -->
+                <div class="mode-selector">
+                    <h3>Mode Analisis</h3>
+                    <div class="mode-buttons">
+                        <button class="mode-btn active" data-depth="22" onclick="setMode(this)">🔥 Ekstrim</button>
+                        <button class="mode-btn" data-depth="18" onclick="setMode(this)">🧠 Bijak</button>
+                        <button class="mode-btn" data-depth="12" onclick="setMode(this)">⚡ Normal</button>
+                    </div>
+                </div>
+
+                <button id="reset-btn">🔄 Reset Papan</button>
+                <button id="flip-btn">🔃 Putar Papan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <!-- Stockfish.js (WASM) -->
+    <script src="stockfish.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
