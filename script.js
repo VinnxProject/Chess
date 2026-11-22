@@ -1,4 +1,59 @@
 
+// ======================================
+// VINNXMATE WELCOME SYSTEM
+// ======================================
+
+const welcomePopup = document.getElementById('welcome-popup');
+const confirmJoinButton = document.getElementById('confirm-join');
+
+let joinConfirmCount = 0;
+
+const welcomeCompleted =
+    localStorage.getItem('vinnxmate_welcome_completed') === 'true';
+
+if (welcomeCompleted) {
+    welcomePopup.style.display = 'none';
+} else {
+    welcomePopup.style.display = 'flex';
+}
+
+confirmJoinButton.addEventListener('click', function () {
+    joinConfirmCount++;
+
+    if (joinConfirmCount >= 3) {
+        localStorage.setItem(
+            'vinnxmate_welcome_completed',
+            'true'
+        );
+
+        welcomePopup.classList.add('hide');
+
+        setTimeout(() => {
+            welcomePopup.style.display = 'none';
+        }, 350);
+    }
+});
+
+
+// ======================================
+// INTRO SCREEN
+// ======================================
+
+function enterWebsite() {
+    const intro = document.getElementById('intro-screen');
+
+    intro.classList.add('hide');
+
+    setTimeout(() => {
+        intro.style.display = 'none';
+    }, 650);
+}
+
+
+// ======================================
+// DOM ELEMENTS
+// ======================================
+
 const boardElement = document.getElementById('board');
 const evalElement = document.getElementById('evaluation');
 const bestMoveElement = document.getElementById('best-move');
@@ -26,6 +81,24 @@ let redoHistory = [];
 
 const files = 'abcdefgh';
 
+
+// ======================================
+// GAME REVIEW STATE
+// ======================================
+
+let reviewWorker = null;
+let reviewReady = false;
+let reviewBusy = false;
+let reviewCancelled = false;
+let reviewDepth = 10;
+
+let reviewResolve = null;
+let reviewScore = null;
+let reviewBestMove = null;
+
+const reviewResults = [];
+
+
 // ======================================
 // PIECE SYMBOLS
 // ======================================
@@ -40,6 +113,7 @@ const pieceSymbols = {
         b: '♝', q: '♛', k: '♚'
     }
 };
+
 
 // ======================================
 // ENGINE INITIALIZATION
@@ -132,6 +206,7 @@ try {
     pvElement.textContent = 'Stockfish could not start';
 }
 
+
 // ======================================
 // ENGINE MODE
 // ======================================
@@ -177,6 +252,7 @@ function setMode(btn) {
     updateEngineButtons();
     analyzePosition();
 }
+
 
 // ======================================
 // ENGINE BUTTONS
@@ -290,8 +366,9 @@ function runEngine() {
     analyzePosition();
 }
 
+
 // ======================================
-// UNDO / REDO MOVE
+// UNDO / REDO
 // ======================================
 
 function createHistoryControls() {
@@ -379,8 +456,8 @@ function undoMove() {
 
     renderBoard();
     updateHistoryButtons();
+    clearReviewResults();
 
-    // Analisis hanya diperbarui jika engine sedang berjalan
     analyzePosition();
 }
 
@@ -406,10 +483,658 @@ function redoMove() {
 
     renderBoard();
     updateHistoryButtons();
+    clearReviewResults();
 
-    // Analisis hanya diperbarui jika engine sedang berjalan
     analyzePosition();
 }
+
+
+// ======================================
+// GAME REVIEW UI
+// ======================================
+
+function createReviewControls() {
+    if (document.getElementById('game-review-controls')) return;
+
+    const container = document.createElement('div');
+
+    container.id = 'game-review-controls';
+
+    container.style.cssText = `
+        width:100%;
+        margin-top:14px;
+    `;
+
+    container.innerHTML = `
+        <button id="start-game-review" type="button">
+            REVIEW GAME
+        </button>
+
+        <div id="game-review-status">
+            Ready to review
+        </div>
+
+        <div id="game-review-summary"></div>
+        <div id="game-review-results"></div>
+    `;
+
+    const style = document.createElement('style');
+
+    style.textContent = `
+        #start-game-review {
+            width:100%;
+            min-height:45px;
+            border:0;
+            border-radius:10px;
+            background:#81b64c;
+            color:#101710;
+            font-size:14px;
+            font-weight:900;
+            cursor:pointer;
+        }
+
+        #start-game-review:disabled {
+            opacity:.5;
+            cursor:not-allowed;
+        }
+
+        #game-review-status {
+            margin-top:10px;
+            color:#9ca3af;
+            font-size:12px;
+            text-align:center;
+        }
+
+        #game-review-summary {
+            display:grid;
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            gap:8px;
+            margin-top:12px;
+        }
+
+        .review-stat {
+            background:#1d293b;
+            padding:12px;
+            border-radius:9px;
+            color:white;
+        }
+
+        .review-stat strong {
+            display:block;
+            font-size:20px;
+            margin-bottom:4px;
+        }
+
+        .review-stat small {
+            color:#9ca3af;
+            font-size:11px;
+        }
+
+        #game-review-results {
+            display:grid;
+            gap:8px;
+            margin-top:12px;
+        }
+
+        .review-move {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:10px;
+            padding:11px 13px;
+            background:#1d293b;
+            border-radius:9px;
+            color:white;
+            font-size:13px;
+        }
+
+        .review-move-info {
+            display:flex;
+            flex-direction:column;
+            gap:4px;
+            min-width:0;
+        }
+
+        .review-move-info small {
+            color:#8994a5;
+        }
+
+        .review-label {
+            font-size:11px;
+            font-weight:900;
+            padding:6px 9px;
+            border-radius:6px;
+            white-space:nowrap;
+        }
+
+        .review-brilliant {
+            background:#159b8b;
+            color:white;
+        }
+
+        .review-great {
+            background:#2878c7;
+            color:white;
+        }
+
+        .review-best {
+            background:#81b64c;
+            color:#101710;
+        }
+
+        .review-excellent {
+            background:#579b72;
+            color:white;
+        }
+
+        .review-good {
+            background:#557c9f;
+            color:white;
+        }
+
+        .review-inaccuracy {
+            background:#c49b39;
+            color:#17130a;
+        }
+
+        .review-mistake {
+            background:#d47737;
+            color:white;
+        }
+
+        .review-blunder {
+            background:#c0392b;
+            color:white;
+        }
+    `;
+
+    document.head.appendChild(style);
+
+    const wrapper = document.querySelector('.board-wrapper');
+
+    const historyControls = document.getElementById(
+        'move-history-controls'
+    );
+
+    if (historyControls) {
+        historyControls.insertAdjacentElement('afterend', container);
+    } else if (wrapper) {
+        wrapper.insertAdjacentElement('afterend', container);
+    } else {
+        boardElement.insertAdjacentElement('afterend', container);
+    }
+
+    document.getElementById('start-game-review')
+        .addEventListener('click', startGameReview);
+}
+
+function clearReviewResults() {
+    const results = document.getElementById('game-review-results');
+    const summary = document.getElementById('game-review-summary');
+    const status = document.getElementById('game-review-status');
+
+    if (results) results.innerHTML = '';
+    if (summary) summary.innerHTML = '';
+
+    if (status && !reviewBusy) {
+        status.textContent = 'Ready to review';
+    }
+
+    reviewResults.length = 0;
+}
+
+
+// ======================================
+// REVIEW ENGINE INITIALIZATION
+// ======================================
+
+function initializeReviewWorker() {
+    return new Promise((resolve, reject) => {
+        if (reviewReady && reviewWorker) {
+            resolve();
+            return;
+        }
+
+        if (reviewWorker) {
+            reject(new Error('Review engine is unavailable'));
+            return;
+        }
+
+        try {
+            reviewWorker = new Worker('stockfish-19-asm.js');
+
+            const timeout = setTimeout(() => {
+                reject(new Error('Review engine initialization timeout'));
+            }, 30000);
+
+            reviewWorker.onerror = error => {
+                clearTimeout(timeout);
+                reject(error);
+            };
+
+            reviewWorker.onmessage = event => {
+                const line = String(event.data || '').trim();
+
+                if (line === 'uciok') {
+                    reviewWorker.postMessage('isready');
+                    return;
+                }
+
+                if (line === 'readyok') {
+                    clearTimeout(timeout);
+                    reviewReady = true;
+                    resolve();
+                    return;
+                }
+
+                if (reviewResolve) {
+                    if (line.startsWith('info ')) {
+                        const cpMatch = line.match(/score cp (-?\d+)/);
+                        const mateMatch = line.match(/score mate (-?\d+)/);
+
+                        if (cpMatch) {
+                            reviewScore = Number(cpMatch[1]) / 100;
+                        } else if (mateMatch) {
+                            const mate = Number(mateMatch[1]);
+
+                            reviewScore = mate > 0
+                                ? 1000 - mate
+                                : -1000 - mate;
+                        }
+
+                        const pvMatch = line.match(
+                            /\bpv\s+([a-h][1-8][a-h][1-8][qrbn]?)/
+                        );
+
+                        if (pvMatch) {
+                            reviewBestMove = pvMatch[1];
+                        }
+                    }
+
+                    if (line.startsWith('bestmove')) {
+                        const parts = line.split(/\s+/);
+                        const bestMove = parts[1];
+
+                        const resolveSearch = reviewResolve;
+                        reviewResolve = null;
+
+                        resolveSearch({
+                            score: reviewScore,
+                            bestMove: bestMove && bestMove !== '(none)'
+                                ? bestMove
+                                : null
+                        });
+                    }
+                }
+            };
+
+            reviewWorker.postMessage('uci');
+
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+
+// ======================================
+// REVIEW POSITION
+// ======================================
+
+function reviewPosition(fen) {
+    return new Promise((resolve, reject) => {
+        if (!reviewWorker || !reviewReady) {
+            reject(new Error('Review engine not ready'));
+            return;
+        }
+
+        reviewScore = null;
+        reviewBestMove = null;
+        reviewResolve = resolve;
+
+        reviewWorker.postMessage('position fen ' + fen);
+        reviewWorker.postMessage('go depth ' + reviewDepth);
+    });
+}
+
+
+// ======================================
+// REVIEW HELPERS
+// ======================================
+
+function getWhiteScore(score, fen) {
+    const turn = fen.split(' ')[1];
+
+    return turn === 'b' ? -score : score;
+}
+
+function getMoveLabel(loss, isBest, move, afterFen) {
+    const normalizedLoss = Math.max(0, loss);
+
+    if (isBest) {
+        return {
+            label: 'Best Move',
+            symbol: '★',
+            className: 'review-best'
+        };
+    }
+
+    if (normalizedLoss <= 0.05) {
+        return {
+            label: 'Great Move',
+            symbol: '!',
+            className: 'review-great'
+        };
+    }
+
+    if (normalizedLoss <= 0.25) {
+        return {
+            label: 'Excellent',
+            symbol: '!',
+            className: 'review-excellent'
+        };
+    }
+
+    if (normalizedLoss <= 0.50) {
+        return {
+            label: 'Good',
+            symbol: '✓',
+            className: 'review-good'
+        };
+    }
+
+    if (normalizedLoss <= 1.00) {
+        return {
+            label: 'Inaccuracy',
+            symbol: '?!',
+            className: 'review-inaccuracy'
+        };
+    }
+
+    if (normalizedLoss <= 2.00) {
+        return {
+            label: 'Mistake',
+            symbol: '?',
+            className: 'review-mistake'
+        };
+    }
+
+    return {
+        label: 'Blunder',
+        symbol: '??',
+        className: 'review-blunder'
+    };
+}
+
+function formatReviewScore(score) {
+    if (score === null || !Number.isFinite(score)) {
+        return 'N/A';
+    }
+
+    return (score > 0 ? '+' : '') + score.toFixed(2);
+}
+
+function getReviewPositions() {
+    const history = game.history({ verbose: true });
+    const temp = new Chess();
+
+    const positions = [{
+        fen: temp.fen(),
+        move: null,
+        moveNumber: 0,
+        color: null,
+        san: null
+    }];
+
+    history.forEach((move, index) => {
+        const result = temp.move({
+            from: move.from,
+            to: move.to,
+            promotion: move.promotion || 'q'
+        });
+
+        if (!result) return;
+
+        positions.push({
+            fen: temp.fen(),
+            move: result,
+            moveNumber: Math.floor(index / 2) + 1,
+            color: result.color,
+            san: result.san
+        });
+    });
+
+    return positions;
+}
+
+
+// ======================================
+// START GAME REVIEW
+// ======================================
+
+async function startGameReview() {
+    const button = document.getElementById('start-game-review');
+    const status = document.getElementById('game-review-status');
+    const results = document.getElementById('game-review-results');
+    const summary = document.getElementById('game-review-summary');
+
+    if (reviewBusy) {
+        reviewCancelled = true;
+
+        if (reviewWorker) {
+            reviewWorker.postMessage('stop');
+        }
+
+        status.textContent = 'Cancelling review...';
+        return;
+    }
+
+    const history = game.history();
+
+    if (history.length === 0) {
+        status.textContent = 'Play some moves before reviewing.';
+        return;
+    }
+
+    reviewBusy = true;
+    reviewCancelled = false;
+
+    button.textContent = 'CANCEL REVIEW';
+    results.innerHTML = '';
+    summary.innerHTML = '';
+
+    reviewResults.length = 0;
+
+    try {
+        status.textContent = 'Starting review engine...';
+
+        await initializeReviewWorker();
+
+        if (reviewCancelled) return;
+
+        const positions = getReviewPositions();
+
+        if (positions.length < 2) {
+            status.textContent = 'No moves to review.';
+            return;
+        }
+
+        const evaluations = [];
+
+        for (let i = 0; i < positions.length; i++) {
+            if (reviewCancelled) break;
+
+            status.textContent =
+                `Analyzing position ${i + 1}/${positions.length}`;
+
+            const evaluation = await reviewPosition(
+                positions[i].fen
+            );
+
+            const whiteScore = evaluation.score === null
+                ? null
+                : getWhiteScore(
+                    evaluation.score,
+                    positions[i].fen
+                );
+
+            evaluations.push({
+                whiteScore,
+                bestMove: evaluation.bestMove
+            });
+        }
+
+        if (reviewCancelled) {
+            status.textContent = 'Review cancelled.';
+            return;
+        }
+
+        const counts = {
+            'Brilliant': 0,
+            'Great Move': 0,
+            'Best Move': 0,
+            'Excellent': 0,
+            'Good': 0,
+            'Inaccuracy': 0,
+            'Mistake': 0,
+            'Blunder': 0
+        };
+
+        for (let i = 1; i < positions.length; i++) {
+            const before = positions[i - 1];
+            const after = positions[i];
+
+            const beforeEval = evaluations[i - 1];
+            const afterEval = evaluations[i];
+
+            if (
+                beforeEval.whiteScore === null ||
+                afterEval.whiteScore === null
+            ) continue;
+
+            const mover = after.color;
+
+            const beforeMoverScore = mover === 'w'
+                ? beforeEval.whiteScore
+                : -beforeEval.whiteScore;
+
+            const afterMoverScore = mover === 'w'
+                ? afterEval.whiteScore
+                : -afterEval.whiteScore;
+
+            const loss = Math.max(
+                0,
+                beforeMoverScore - afterMoverScore
+            );
+
+            const moveUci =
+                after.move.from +
+                after.move.to +
+                (after.move.promotion || '');
+
+            const isBest =
+                beforeEval.bestMove === moveUci;
+
+            const classification = getMoveLabel(
+                loss,
+                isBest,
+                after.move,
+                after.fen
+            );
+
+            counts[classification.label]++;
+
+            reviewResults.push({
+                number: after.moveNumber,
+                color: mover,
+                san: after.san,
+                loss,
+                classification
+            });
+        }
+
+        renderReviewResults(counts);
+
+        status.textContent =
+            `Review completed: ${reviewResults.length} moves analyzed.`;
+
+    } catch (error) {
+        console.error('Game Review error:', error);
+        status.textContent =
+            'Review error: ' + (error.message || 'Unknown error');
+
+    } finally {
+        reviewBusy = false;
+        button.textContent = 'REVIEW GAME';
+    }
+}
+
+
+// ======================================
+// RENDER REVIEW RESULTS
+// ======================================
+
+function renderReviewResults(counts) {
+    const results = document.getElementById('game-review-results');
+    const summary = document.getElementById('game-review-summary');
+
+    results.innerHTML = '';
+    summary.innerHTML = '';
+
+    const importantLabels = [
+        'Brilliant',
+        'Great Move',
+        'Best Move',
+        'Excellent',
+        'Good',
+        'Inaccuracy',
+        'Mistake',
+        'Blunder'
+    ];
+
+    importantLabels.forEach(label => {
+        const stat = document.createElement('div');
+
+        stat.className = 'review-stat';
+
+        stat.innerHTML = `
+            <strong>${counts[label] || 0}</strong>
+            <small>${label}</small>
+        `;
+
+        summary.appendChild(stat);
+    });
+
+    reviewResults.forEach(item => {
+        const row = document.createElement('div');
+
+        row.className = 'review-move';
+
+        const colorName = item.color === 'w'
+            ? 'White'
+            : 'Black';
+
+        row.innerHTML = `
+            <div class="review-move-info">
+                <strong>
+                    ${item.number}${item.color === 'b' ? '...' : '.'}
+                    ${item.san}
+                </strong>
+                <small>
+                    ${colorName} · Loss: ${item.loss.toFixed(2)}
+                </small>
+            </div>
+
+            <span class="review-label ${item.classification.className}">
+                ${item.classification.symbol}
+                ${item.classification.label}
+            </span>
+        `;
+
+        results.appendChild(row);
+    });
+}
+
 
 // ======================================
 // BOARD RENDER
@@ -539,6 +1264,7 @@ function renderBoard() {
     }
 }
 
+
 // ======================================
 // SELECTED SQUARE
 // ======================================
@@ -553,6 +1279,7 @@ function highlightSelected(pos) {
     square.style.boxShadow =
         'inset 0 0 0 4px #facc15';
 }
+
 
 // ======================================
 // LEGAL MOVE INDICATORS
@@ -600,6 +1327,7 @@ function showLegalMoves(from) {
     });
 }
 
+
 // ======================================
 // CLICK INTERACTION
 // ======================================
@@ -626,7 +1354,6 @@ function handleSquareClick(square) {
             });
 
             if (result) {
-                // Langkah baru menghapus riwayat Redo
                 redoHistory = [];
 
                 selectedSquare = null;
@@ -634,8 +1361,8 @@ function handleSquareClick(square) {
 
                 renderBoard();
                 updateHistoryButtons();
+                clearReviewResults();
 
-                // Engine Stop tidak mengunci permainan
                 analyzePosition();
 
                 return;
@@ -660,6 +1387,7 @@ function handleSquareClick(square) {
     }
 }
 
+
 // ======================================
 // UCI TO SAN
 // ======================================
@@ -680,6 +1408,7 @@ function uciToSan(uci, fen) {
         return uci;
     }
 }
+
 
 // ======================================
 // PRINCIPAL VARIATION
@@ -713,6 +1442,7 @@ function convertPV(pv, fen) {
     }
 }
 
+
 // ======================================
 // DISPLAY BEST MOVE
 // ======================================
@@ -745,6 +1475,7 @@ function displayBestMove(uci) {
 
     drawArrow(from, to);
 }
+
 
 // ======================================
 // DRAW BEST MOVE ARROW
@@ -841,6 +1572,7 @@ function drawArrow(from, to) {
     arrowLayer.appendChild(polygon);
 }
 
+
 // ======================================
 // ENGINE INFO
 // ======================================
@@ -887,13 +1619,12 @@ function handleEngineInfo(line) {
     }
 }
 
+
 // ======================================
 // ANALYSIS CONTROL
 // ======================================
 
 function analyzePosition() {
-    // Engine Stop hanya menghentikan analisis,
-    // bukan menghentikan permainan catur.
     if (enginePaused) return;
 
     analysisVersion++;
@@ -930,6 +1661,7 @@ function startAnalysis() {
     updateEngineButtons();
 }
 
+
 // ======================================
 // RESET
 // ======================================
@@ -955,11 +1687,11 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 
     renderBoard();
     updateHistoryButtons();
+    clearReviewResults();
 
-    // Jika engine sedang Stop, permainan tetap di-reset
-    // tanpa menjalankan analisis.
     analyzePosition();
 });
+
 
 // ======================================
 // FLIP BOARD
@@ -979,6 +1711,7 @@ document.getElementById('flip-btn').addEventListener('click', () => {
     }
 });
 
+
 // ======================================
 // INITIALIZATION
 // ======================================
@@ -995,6 +1728,7 @@ arrowLayer.style.cssText = `
 
 createEngineControls();
 createHistoryControls();
+createReviewControls();
 
 renderBoard();
 
@@ -1003,8 +1737,6 @@ updateHistoryButtons();
 evalElement.textContent = '0.00';
 bestMoveElement.textContent = 'Waiting for Stockfish...';
 pvElement.textContent = 'Waiting for Stockfish...';
-
-// Set Normal sebagai mode awal
 
 const initialMode = document.querySelector('.mode-btn');
 
