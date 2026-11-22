@@ -1,3 +1,4 @@
+
 const boardElement = document.getElementById('board');
 const evalElement = document.getElementById('evaluation');
 const bestMoveElement = document.getElementById('best-move');
@@ -7,75 +8,89 @@ const arrowLayer = document.getElementById('arrow-layer');
 const game = new Chess();
 
 let selectedSquare = null;
+let flipped = false;
 let currentDepth = 22;
-let stockfish = new Worker('stockfish-19-asm.js');
 
+let stockfish;
 let engineReady = false;
 let searching = false;
 let pendingAnalysis = false;
-let desiredVersion = 0;
+
+let analysisVersion = 0;
 let activeVersion = 0;
 let activeFen = null;
+let lastBestMove = null;
 
-// =====================================
+const files = 'abcdefgh';
+
+// ======================================
 // ENGINE INITIALIZATION
-// =====================================
+// ======================================
 
-stockfish.onmessage = function(event) {
-    const line = String(event.data || '').trim();
+try {
+    stockfish = new Worker('stockfish-19-asm.js');
 
-    if (line === 'uciok') {
-        stockfish.postMessage('isready');
-        return;
-    }
+    stockfish.onmessage = function(event) {
+        const line = String(event.data || '').trim();
 
-    if (line === 'readyok') {
-        engineReady = true;
-        analyzePosition();
-        return;
-    }
-
-    if (line.startsWith('info depth')) {
-        if (activeVersion !== desiredVersion) return;
-
-        handleEngineInfo(line);
-        return;
-    }
-
-    if (line.startsWith('bestmove')) {
-        searching = false;
-
-        const parts = line.split(/\s+/);
-        const bestMove = parts[1];
-
-        if (activeVersion === desiredVersion && bestMove && bestMove !== '(none)') {
-            displayBestMove(bestMove);
-        } else if (activeVersion === desiredVersion) {
-            bestMoveElement.textContent = 'No legal move';
-            pvElement.textContent = '-';
-            arrowLayer.innerHTML = '';
+        if (line === 'uciok') {
+            stockfish.postMessage('isready');
+            return;
         }
 
-        if (pendingAnalysis) {
-            pendingAnalysis = false;
+        if (line === 'readyok') {
+            engineReady = true;
             startAnalysis();
+            return;
         }
-    }
-};
 
-stockfish.onerror = function(error) {
-    console.error('Stockfish error:', error);
-    bestMoveElement.textContent = 'Engine Error';
-    pvElement.textContent = 'Check engine file';
-};
+        if (line.startsWith('info depth')) {
+            if (activeVersion !== analysisVersion) return;
+            handleEngineInfo(line);
+            return;
+        }
 
-// Start UCI
-stockfish.postMessage('uci');
+        if (line.startsWith('bestmove')) {
+            searching = false;
+
+            if (activeVersion !== analysisVersion || pendingAnalysis) {
+                pendingAnalysis = false;
+                startAnalysis();
+                return;
+            }
+
+            const parts = line.split(/\s+/);
+            const uci = parts[1];
+
+            if (!uci || uci === '(none)') {
+                bestMoveElement.textContent = 'No legal move';
+                pvElement.textContent = '-';
+                lastBestMove = null;
+                drawArrow();
+                return;
+            }
+
+            displayBestMove(uci);
+        }
+    };
+
+    stockfish.onerror = function(error) {
+        console.error('Stockfish error:', error);
+        bestMoveElement.textContent = 'Engine Error';
+        pvElement.textContent = 'Check Stockfish file';
+    };
+
+    stockfish.postMessage('uci');
+
+} catch (error) {
+    console.error(error);
+    bestMoveElement.textContent = 'Engine unavailable';
+}
 
 
-// =====================================
+// ======================================
 // ENGINE MODE
-// =====================================
+// ======================================
 
 function setMode(btn) {
     document.querySelectorAll('.mode-btn').forEach(button => {
@@ -84,34 +99,51 @@ function setMode(btn) {
 
     btn.classList.add('active');
 
-    currentDepth = parseInt(btn.dataset.depth, 10);
+    currentDepth = Number(btn.dataset.depth);
 
     analyzePosition();
 }
 
 
-// =====================================
-// CHESS BOARD
-// =====================================
+// ======================================
+// BOARD RENDER
+// ======================================
 
 function renderBoard() {
     boardElement.innerHTML = '';
 
+    // Jangan gunakan rotate(180deg).
+    // Posisi bidak diubah melalui urutan kotak.
+
+    boardElement.style.transform = 'none';
+    arrowLayer.style.transform = 'none';
+
     const board = game.board();
 
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
+    for (let displayRow = 0; displayRow < 8; displayRow++) {
+        for (let displayCol = 0; displayCol < 8; displayCol++) {
+
+            const rank = flipped
+                ? displayRow + 1
+                : 8 - displayRow;
+
+            const fileIndex = flipped
+                ? 7 - displayCol
+                : displayCol;
+
+            const pos = files[fileIndex] + rank;
+
             const square = document.createElement('div');
 
-            const isLight = (r + c) % 2 === 0;
+            const isLight = (rank + fileIndex) % 2 === 0;
 
             square.className = `square ${isLight ? 'light' : 'dark'}`;
-
-            const pos = `${String.fromCharCode(97 + c)}${8 - r}`;
-
             square.dataset.pos = pos;
 
-            const piece = board[r][c];
+            square.style.position = 'relative';
+            square.style.overflow = 'hidden';
+
+            const piece = game.get(pos);
 
             if (piece) {
                 const symbols = {
@@ -129,13 +161,54 @@ function renderBoard() {
                     K: '♔'
                 };
 
-                square.textContent =
-                    symbols[piece.color === 'w'
+                square.textContent = symbols[
+                    piece.color === 'w'
                         ? piece.type.toUpperCase()
-                        : piece.type];
+                        : piece.type
+                ];
 
                 square.style.color =
-                    piece.color === 'w' ? '#fff' : '#000';
+                    piece.color === 'w' ? '#ffffff' : '#000000';
+            }
+
+            // Coordinate labels
+
+            if (displayCol === 0) {
+                const rankLabel = document.createElement('span');
+
+                rankLabel.textContent = rank;
+                rankLabel.style.cssText = `
+                    position:absolute;
+                    top:2px;
+                    left:4px;
+                    font-size:10px;
+                    font-weight:800;
+                    opacity:.7;
+                    pointer-events:none;
+                    z-index:3;
+                    color:inherit;
+                `;
+
+                square.appendChild(rankLabel);
+            }
+
+            if (displayRow === 7) {
+                const fileLabel = document.createElement('span');
+
+                fileLabel.textContent = files[fileIndex];
+                fileLabel.style.cssText = `
+                    position:absolute;
+                    bottom:2px;
+                    right:4px;
+                    font-size:10px;
+                    font-weight:800;
+                    opacity:.7;
+                    pointer-events:none;
+                    z-index:3;
+                    color:inherit;
+                `;
+
+                square.appendChild(fileLabel);
             }
 
             square.addEventListener('click', () => {
@@ -147,14 +220,34 @@ function renderBoard() {
     }
 
     if (selectedSquare) {
+        highlightSelected(selectedSquare);
         showLegalMoves(selectedSquare);
+    }
+
+    if (lastBestMove) {
+        drawArrow(lastBestMove.from, lastBestMove.to);
     }
 }
 
 
-// =====================================
+// ======================================
+// SELECTED SQUARE
+// ======================================
+
+function highlightSelected(pos) {
+    const square = boardElement.querySelector(
+        `[data-pos="${pos}"]`
+    );
+
+    if (!square) return;
+
+    square.style.boxShadow = 'inset 0 0 0 4px #facc15';
+}
+
+
+// ======================================
 // LEGAL MOVE INDICATORS
-// =====================================
+// ======================================
 
 function showLegalMoves(from) {
     const moves = game.moves({
@@ -162,16 +255,12 @@ function showLegalMoves(from) {
         verbose: true
     });
 
-    const squares = boardElement.querySelectorAll('.square');
+    moves.forEach(move => {
+        const square = boardElement.querySelector(
+            `[data-pos="${move.to}"]`
+        );
 
-    squares.forEach(square => {
-        const destination = square.dataset.pos;
-
-        const possible = moves.find(move => move.to === destination);
-
-        if (!possible) return;
-
-        square.classList.add('legal-target');
+        if (!square) return;
 
         const marker = document.createElement('span');
 
@@ -181,35 +270,36 @@ function showLegalMoves(from) {
             position:absolute;
             width:25%;
             height:25%;
-            border-radius:50%;
-            background:rgba(20,90,45,.65);
             top:50%;
             left:50%;
             transform:translate(-50%,-50%);
+            border-radius:50%;
+            background:rgba(25,100,45,.65);
             pointer-events:none;
             z-index:5;
         `;
 
-        if (possible.captured) {
+        if (move.captured) {
             marker.style.width = '85%';
             marker.style.height = '85%';
             marker.style.background = 'transparent';
-            marker.style.border = '5px solid rgba(20,90,45,.65)';
+            marker.style.border = '5px solid rgba(25,100,45,.65)';
         }
 
-        square.style.position = 'relative';
         square.appendChild(marker);
     });
 }
 
 
-// =====================================
-// SQUARE INTERACTION
-// =====================================
+// ======================================
+// CLICK INTERACTION
+// ======================================
 
 function handleSquareClick(square) {
     const pos = square.dataset.pos;
     const piece = game.get(pos);
+
+    if (game.game_over()) return;
 
     if (selectedSquare) {
         const moves = game.moves({
@@ -228,6 +318,7 @@ function handleSquareClick(square) {
 
             if (result) {
                 selectedSquare = null;
+                lastBestMove = null;
 
                 renderBoard();
                 analyzePosition();
@@ -239,13 +330,6 @@ function handleSquareClick(square) {
         if (piece && piece.color === game.turn()) {
             selectedSquare = pos;
             renderBoard();
-
-            const selected = boardElement.querySelector(
-                `[data-pos="${pos}"]`
-            );
-
-            if (selected) selected.classList.add('selected');
-
             return;
         }
 
@@ -257,34 +341,23 @@ function handleSquareClick(square) {
 
     if (piece && piece.color === game.turn()) {
         selectedSquare = pos;
-
         renderBoard();
-
-        const selected = boardElement.querySelector(
-            `[data-pos="${pos}"]`
-        );
-
-        if (selected) selected.classList.add('selected');
     }
 }
 
 
-// =====================================
-// MOVE CONVERSION
-// =====================================
+// ======================================
+// CONVERT UCI TO SAN
+// ======================================
 
 function uciToSan(uci, fen) {
     try {
-        const tempGame = new Chess(fen);
+        const temp = new Chess(fen);
 
-        const from = uci.substring(0, 2);
-        const to = uci.substring(2, 4);
-        const promotion = uci.substring(4, 5);
-
-        const move = tempGame.move({
-            from,
-            to,
-            promotion: promotion || 'q'
+        const move = temp.move({
+            from: uci.substring(0, 2),
+            to: uci.substring(2, 4),
+            promotion: uci.substring(4, 5) || 'q'
         });
 
         return move ? move.san : uci;
@@ -294,105 +367,108 @@ function uciToSan(uci, fen) {
     }
 }
 
+
+// ======================================
+// PRINCIPAL VARIATION
+// ======================================
+
 function convertPV(pv, fen) {
     try {
-        const tempGame = new Chess(fen);
-
+        const temp = new Chess(fen);
         const moves = pv.trim().split(/\s+/);
+
         const result = [];
 
-        for (const uci of moves) {
-            const from = uci.substring(0, 2);
-            const to = uci.substring(2, 4);
-            const promotion = uci.substring(4, 5);
-
-            const move = tempGame.move({
-                from,
-                to,
-                promotion: promotion || 'q'
+        moves.forEach(uci => {
+            const move = temp.move({
+                from: uci.substring(0, 2),
+                to: uci.substring(2, 4),
+                promotion: uci.substring(4, 5) || 'q'
             });
 
-            if (!move) break;
-
-            result.push(move.san);
-        }
+            if (move) {
+                result.push(move.san);
+            }
+        });
 
         return result.join(' ');
+
     } catch (error) {
         return pv;
     }
 }
 
 
-// =====================================
+// ======================================
 // DISPLAY BEST MOVE
-// =====================================
+// ======================================
 
 function displayBestMove(uci) {
-    const fen = activeFen;
-
     const from = uci.substring(0, 2);
     const to = uci.substring(2, 4);
 
-    const san = uciToSan(uci, fen);
+    const san = uciToSan(uci, activeFen);
+
+    lastBestMove = { from, to };
 
     bestMoveElement.innerHTML = `
         <div style="
-            font-size:24px;
+            font-size:25px;
             font-weight:900;
             color:#81b64c;
         ">${san}</div>
 
         <div style="
-            color:#8994a5;
             font-size:11px;
+            color:#8994a5;
             margin-top:5px;
-        ">${from} → ${to}</div>
+        ">
+            ${from} → ${to}
+        </div>
     `;
 
     drawArrow(from, to);
 }
 
 
-// =====================================
-// ARROW INDICATOR
-// =====================================
+// ======================================
+// DRAW ANALYSIS ARROW
+// ======================================
 
 function drawArrow(from, to) {
     arrowLayer.innerHTML = '';
 
     if (!from || !to) return;
 
-    const fromCol = from.charCodeAt(0) - 97;
-    const fromRow = 8 - parseInt(from[1], 10);
+    const fromFile = files.indexOf(from[0]);
+    const fromRank = Number(from[1]);
 
-    const toCol = to.charCodeAt(0) - 97;
-    const toRow = 8 - parseInt(to[1], 10);
+    const toFile = files.indexOf(to[0]);
+    const toRank = Number(to[1]);
 
-    const size = 60;
+    // Posisi visual menyesuaikan orientasi papan.
 
-    const x1 = fromCol * size + 30;
-    const y1 = fromRow * size + 30;
+    const x1 = ((flipped ? 7 - fromFile : fromFile) * 60) + 30;
+    const y1 = ((flipped ? fromRank - 1 : 8 - fromRank) * 60) + 30;
 
-    const x2 = toCol * size + 30;
-    const y2 = toRow * size + 30;
+    const x2 = ((flipped ? 7 - toFile : toFile) * 60) + 30;
+    const y2 = ((flipped ? toRank - 1 : 8 - toRank) * 60) + 30;
 
-    const defs = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'defs'
-    );
+    const ns = 'http://www.w3.org/2000/svg';
+
+    const defs = document.createElementNS(ns, 'defs');
 
     defs.innerHTML = `
         <marker
-            id="arrowhead"
-            markerWidth="8"
-            markerHeight="8"
-            refX="6"
-            refY="3"
+            id="vinnx-arrowhead"
+            markerWidth="10"
+            markerHeight="10"
+            refX="8"
+            refY="5"
             orient="auto"
         >
             <polygon
-                points="0 0, 6 3, 0 6"
+                points="0 0, 10 5, 0 10"
                 fill="#ffd700"
             />
         </marker>
@@ -400,10 +476,7 @@ function drawArrow(from, to) {
 
     arrowLayer.appendChild(defs);
 
-    const arrow = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'line'
-    );
+    const arrow = document.createElementNS(ns, 'line');
 
     arrow.setAttribute('x1', x1);
     arrow.setAttribute('y1', y1);
@@ -411,42 +484,42 @@ function drawArrow(from, to) {
     arrow.setAttribute('y2', y2);
 
     arrow.setAttribute('stroke', '#ffd700');
-    arrow.setAttribute('stroke-width', '7');
+    arrow.setAttribute('stroke-width', '8');
     arrow.setAttribute('stroke-linecap', 'round');
-    arrow.setAttribute('marker-end', 'url(#arrowhead)');
+    arrow.setAttribute('marker-end', 'url(#vinnx-arrowhead)');
     arrow.setAttribute('opacity', '0.9');
 
     arrowLayer.appendChild(arrow);
 }
 
 
-// =====================================
-// ENGINE EVALUATION & PV
-// =====================================
+// ======================================
+// ENGINE INFO
+// ======================================
 
 function handleEngineInfo(line) {
-    const scoreCp = line.match(/score cp (-?\d+)/);
-    const scoreMate = line.match(/score mate (-?\d+)/);
+    const cpMatch = line.match(/score cp (-?\d+)/);
+    const mateMatch = line.match(/score mate (-?\d+)/);
 
     const turn = activeFen.split(' ')[1];
 
-    if (scoreCp) {
-        let score = parseInt(scoreCp[1], 10) / 100;
+    if (cpMatch) {
+        let score = Number(cpMatch[1]) / 100;
 
-        // Ubah ke sudut pandang putih
         if (turn === 'b') score *= -1;
 
-        const sign = score > 0 ? '+' : '';
+        evalElement.textContent =
+            (score > 0 ? '+' : '') + score.toFixed(2);
 
-        evalElement.textContent = sign + score.toFixed(2);
-
-    } else if (scoreMate) {
-        let mate = parseInt(scoreMate[1], 10);
+    } else if (mateMatch) {
+        let mate = Number(mateMatch[1]);
 
         if (turn === 'b') mate *= -1;
 
         evalElement.textContent =
-            mate > 0 ? `M${mate}` : `-M${Math.abs(mate)}`;
+            mate > 0
+                ? `M${mate}`
+                : `-M${Math.abs(mate)}`;
     }
 
     const pvMatch = line.match(/\spv (.+)$/);
@@ -459,17 +532,19 @@ function handleEngineInfo(line) {
 }
 
 
-// =====================================
+// ======================================
 // ANALYSIS CONTROL
-// =====================================
+// ======================================
 
 function analyzePosition() {
-    desiredVersion++;
+    analysisVersion++;
 
-    bestMoveElement.textContent = 'Analyzing...';
-    pvElement.textContent = 'Calculating variation...';
+    lastBestMove = null;
 
     arrowLayer.innerHTML = '';
+
+    bestMoveElement.textContent = 'Analyzing...';
+    pvElement.textContent = 'Calculating...';
 
     if (!engineReady) return;
 
@@ -482,10 +557,11 @@ function analyzePosition() {
     startAnalysis();
 }
 
+
 function startAnalysis() {
     if (!engineReady) return;
 
-    activeVersion = desiredVersion;
+    activeVersion = analysisVersion;
     activeFen = game.fen();
 
     searching = true;
@@ -495,49 +571,51 @@ function startAnalysis() {
 }
 
 
-// =====================================
-// RESET BOARD
-// =====================================
+// ======================================
+// RESET
+// ======================================
 
 document.getElementById('reset-btn').addEventListener('click', () => {
     game.reset();
 
     selectedSquare = null;
-
-    renderBoard();
+    lastBestMove = null;
 
     evalElement.textContent = '0.00';
-    bestMoveElement.textContent = '-';
-    pvElement.textContent = '-';
+    bestMoveElement.textContent = 'Analyzing...';
+    pvElement.textContent = 'Calculating...';
 
     arrowLayer.innerHTML = '';
 
+    renderBoard();
     analyzePosition();
 });
 
 
-// =====================================
+// ======================================
 // FLIP BOARD
-// =====================================
+// ======================================
 
 document.getElementById('flip-btn').addEventListener('click', () => {
-    const rotated =
-        boardElement.style.transform === 'rotate(180deg)';
+    flipped = !flipped;
 
-    boardElement.style.transform =
-        rotated ? 'rotate(0deg)' : 'rotate(180deg)';
+    selectedSquare = null;
 
-    arrowLayer.style.transform =
-        rotated ? 'rotate(0deg)' : 'rotate(180deg)';
+    renderBoard();
+
+    // Panah ikut menyesuaikan orientasi.
+    if (lastBestMove) {
+        drawArrow(lastBestMove.from, lastBestMove.to);
+    }
 });
 
 
-// =====================================
+// ======================================
 // INITIALIZATION
-// =====================================
+// ======================================
 
 renderBoard();
 
 evalElement.textContent = '0.00';
-bestMoveElement.textContent = 'Waiting for engine...';
-pvElement.textContent = 'Waiting for engine...';
+bestMoveElement.textContent = 'Waiting for Stockfish...';
+pvElement.textContent = 'Waiting for Stockfish...';
